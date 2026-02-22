@@ -1,0 +1,53 @@
+@reference '../../../routes/layout.css';
+
+.auth-title {
+    @apply text-xl font-semibold text-slate-800 dark:text-slate-100;
+}
+
+.auth-subtitle {
+    @apply mt-1 text-sm text-slate-500 dark:text-slate-400;
+}
+
+.auth-form {
+    @apply mt-6 flex flex-col gap-4;
+}
+
+.auth-error {
+    @apply rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300;
+}
+
+.auth-field {
+    @apply flex flex-col gap-1;
+}
+
+.auth-field label {
+    @apply text-sm font-medium text-slate-700 dark:text-slate-300;
+}
+
+.auth-field input {
+    @apply rounded-lg border border-slate-300 px-3 py-2 text-slate-800 placeholder-slate-400 transition focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-indigo-400 dark:focus:ring-indigo-400 dark:disabled:bg-slate-800;
+}
+
+.auth-field input[aria-invalid='true'] {
+    @apply border-red-400 focus:border-red-500 focus:ring-red-500 dark:border-red-500 dark:focus:border-red-400 dark:focus:ring-red-400;
+}
+
+.auth-field-error {
+    @apply text-sm text-red-600 dark:text-red-400;
+}
+
+.auth-submit {
+    @apply mt-2 flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 font-medium text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-70 dark:focus:ring-offset-slate-800;
+}
+
+.auth-spinner {
+    @apply size-4 animate-spin rounded-full border-2 border-white border-t-transparent;
+}
+
+.auth-footer {
+    @apply mt-6 text-center text-sm text-slate-600 dark:text-slate-400;
+}
+
+.auth-link {
+    @apply font-medium text-indigo-600 hover:text-indigo-700 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300;
+}

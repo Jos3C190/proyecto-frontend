@@ -1,0 +1,57 @@
+@reference '../../../routes/layout.css';
+
+.sidebar {
+    @apply flex w-56 flex-col border-r border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800;
+}
+
+.sidebar-header {
+    @apply border-b border-slate-200 p-4 dark:border-slate-700;
+}
+
+.sidebar-brand {
+    @apply text-lg font-semibold text-slate-800 no-underline hover:text-indigo-600 dark:text-slate-100 dark:hover:text-indigo-400;
+}
+
+.sidebar-nav {
+    @apply flex flex-1 flex-col gap-0.5 p-2;
+}
+
+.sidebar-link {
+    @apply flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 no-underline transition hover:bg-slate-200 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100;
+}
+
+.sidebar-link.active {
+    @apply bg-indigo-100 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 dark:hover:bg-indigo-900/40 dark:hover:text-indigo-200;
+}
+
+.sidebar-icon {
+    @apply flex size-5 shrink-0 items-center justify-center text-base [&_svg]:size-5;
+}
+
+.sidebar-footer {
+    @apply border-t border-slate-200 p-3 dark:border-slate-700;
+}
+
+.sidebar-user {
+    @apply mb-2 flex flex-col truncate rounded-lg bg-slate-100 px-3 py-2 text-xs dark:bg-slate-700;
+}
+
+.sidebar-user-name {
+    @apply font-medium text-slate-800 dark:text-slate-100;
+}
+
+.sidebar-user-email {
+    @apply text-slate-500 dark:text-slate-400;
+}
+
+.sidebar-user-role {
+    @apply mt-1 inline-block rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium uppercase text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300;
+}
+
+.sidebar-logout {
+    @apply flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 dark:focus:ring-offset-slate-800;
+}
+
+.sidebar-logout .sidebar-logout-icon {
+    @apply size-4 shrink-0;
+}

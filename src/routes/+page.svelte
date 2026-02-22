@@ -1,2 +1,23 @@
-<h1>Welcome to SvelteKit</h1>
-<p>Visit <a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a> to read the documentation</p>
+<script lang="ts">
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { authStore } from '$lib/stores/auth.store';
+
+	// redirigir a dashboard si hay sesión, si no a login
+	onMount(() => {
+		const unsub = authStore.subscribe((auth) => {
+			if (auth.user) goto('/dashboard', { replaceState: true });
+			else goto('/login', { replaceState: true });
+		});
+		return unsub;
+	});
+</script>
+
+<div class="root-redirect">Redirigiendo...</div>
+
+<style>
+	@reference './layout.css';
+	.root-redirect {
+		@apply flex min-h-svh items-center justify-center text-slate-500;
+	}
+</style>

@@ -1,0 +1,17 @@
+@reference '../../layout.css';
+
+.dashboard {
+    @apply max-w-2xl;
+}
+
+.dashboard-title {
+    @apply text-2xl font-semibold text-slate-800 dark:text-slate-100;
+}
+
+.dashboard-welcome {
+    @apply mt-2 text-slate-600 dark:text-slate-300;
+}
+
+.dashboard-hint {
+    @apply mt-4 text-sm text-slate-500 dark:text-slate-400;
+}

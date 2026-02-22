@@ -1,0 +1,5 @@
+@reference '../layout.css';
+
+.auth-page {
+    @apply flex min-h-svh items-center justify-center bg-slate-100 p-4 dark:bg-slate-900;
+}
