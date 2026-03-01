@@ -53,7 +53,7 @@ export function validatePasswordMatch(password: string, passwordConfirm: string)
 	return null;
 }
 
-export function validateName(value: string, minLength = 2): string | null {
+export function validateName(value: string, minLength = 3): string | null {
 	if (!value?.trim()) return VALIDATION.name.required;
 	if (value.trim().length < minLength) return VALIDATION.name.minLength(minLength);
 	return null;

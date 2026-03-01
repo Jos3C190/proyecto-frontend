@@ -1,10 +1,10 @@
 /**
  * Servicio de autenticación.
- * Conectado al backend FastAPI
+ * Conectado al backend FastAPI (login por email, UserRead con roles y profile)
  */
 
 import { API_BASE } from '$lib/config/api';
-import type { AuthResponse, LoginCredentials, RegisterData, User } from '$lib/types';
+import type { AuthResponse, LoginCredentials, RegisterData, User, RoleRead, UserProfileRead } from '$lib/types';
 
 const STORAGE_KEY = 'auth';
 
@@ -30,14 +30,25 @@ function clearStored(): void {
 	localStorage.removeItem(STORAGE_KEY);
 }
 
+/** Tipo que devuelve el backend en GET /users/me y GET /admin/users */
+interface UserReadRaw {
+	id: number;
+	email: string;
+	is_active: boolean;
+	is_verified: boolean;
+	roles: RoleRead[];
+	profile?: UserProfileRead | null;
+}
+
 /** Mapea UserRead del backend a User del frontend */
-function mapUser(raw: { id: number; username: string; email: string; role: string }): User {
+function mapUser(raw: UserReadRaw): User {
 	return {
 		id: raw.id,
-		username: raw.username,
 		email: raw.email,
-		name: raw.username,
-		role: raw.role ?? 'user'
+		is_active: raw.is_active ?? true,
+		is_verified: raw.is_verified ?? false,
+		roles: raw.roles ?? [],
+		profile: raw.profile ?? null
 	};
 }
 
@@ -64,19 +75,19 @@ async function fetchCurrentUser(token: string): Promise<User> {
 }
 
 /**
- * Inicia sesión POST /auth/login y luego GET /users/me para obtener el usuario y rol
+ * Inicia sesión POST /auth/login (email + password) y luego GET /users/me
  */
 export async function login(credentials: LoginCredentials): Promise<AuthResponse> {
-	const username = credentials.username?.trim();
+	const email = credentials.email?.trim();
 	const password = credentials.password;
-	if (!username || !password) {
-		throw new Error('Usuario y contraseña son obligatorios');
+	if (!email || !password) {
+		throw new Error('Email y contraseña son obligatorios');
 	}
 
 	const loginRes = await fetch(`${API_BASE}/auth/login`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ username, password })
+		body: JSON.stringify({ email, password })
 	});
 
 	if (!loginRes.ok) {
@@ -91,32 +102,33 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
 }
 
 /**
- * Registro POST /users/register y luego login para obtener token y usuario
- * El backend espera username, email, password 
+ * Registro POST /users/register (first_name, last_name, email, password) y luego login
  */
 export async function register(data: RegisterData): Promise<AuthResponse> {
-	const username = data.name.trim();
+	const first_name = data.first_name.trim();
+	const last_name = data.last_name.trim();
 	const email = data.email.trim();
 	const password = data.password;
 
 	const registerRes = await fetch(`${API_BASE}/users/register`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ username, email, password })
+		body: JSON.stringify({ first_name, last_name, email, password })
 	});
 
 	if (!registerRes.ok) {
 		const err = await registerRes.json().catch(() => ({}));
-		const msg = Array.isArray(err.detail) ? err.detail.map((d: { msg?: string }) => d.msg).join(', ') : err.detail;
+		const msg = Array.isArray(err.detail)
+			? err.detail.map((d: { msg?: string }) => d.msg).join(', ')
+			: err.detail;
 		throw new Error(msg ?? 'Error al registrarse');
 	}
 
-	// Tras registrar, hacer login para obtener token
-	return login({ username, password });
+	return login({ email, password });
 }
 
 /**
- * Cierra sesión (solo en local - no se ha implementado en el backend, esto se hará despues de que se implemente)
+ * Cierra sesión (solo en local)
  */
 export function logout(): void {
 	clearStored();

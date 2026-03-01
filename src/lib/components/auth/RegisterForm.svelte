@@ -10,30 +10,34 @@
 	import AuthCard from './AuthCard.svelte';
 	import './RegisterForm.css';
 
-	let name = $state('');
+	let firstName = $state('');
+	let lastName = $state('');
 	let email = $state('');
 	let password = $state('');
 	let passwordConfirm = $state('');
 	let loading = $state(false);
 	let error = $state<string | null>(null);
-	let nameError = $state<string | null>(null);
+	let firstNameError = $state<string | null>(null);
+	let lastNameError = $state<string | null>(null);
 	let emailError = $state<string | null>(null);
 	let passwordError = $state<string | null>(null);
 	let passwordConfirmError = $state<string | null>(null);
 
 	function validate(): boolean {
-		// Backend: username min 3, password min 8
-		nameError = validateName(name, 3);
+		// Backend: first_name/last_name min 1, password min 8
+		firstNameError = validateName(firstName, 1);
+		lastNameError = validateName(lastName, 1);
 		emailError = validateEmail(email);
 		passwordError = validatePassword(password, 8);
 		passwordConfirmError = validatePasswordMatch(password, passwordConfirm);
-		return !nameError && !emailError && !passwordError && !passwordConfirmError;
+		return !firstNameError && !lastNameError && !emailError && !passwordError && !passwordConfirmError;
 	}
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 		error = null;
-		nameError = null;
+		firstNameError = null;
+		lastNameError = null;
 		emailError = null;
 		passwordError = null;
 		passwordConfirmError = null;
@@ -42,7 +46,7 @@
 
 		loading = true;
 		try {
-			await authStore.register(name, email, password, passwordConfirm);
+			await authStore.register(firstName, lastName, email, password, passwordConfirm);
 			goto('/dashboard', { replaceState: true });
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Error al registrarse';
@@ -62,19 +66,36 @@
 		{/if}
 
 		<div class="auth-field">
-			<label for="register-name">Usuario</label>
+			<label for="register-first-name">Nombre</label>
 			<input
-				id="register-name"
+				id="register-first-name"
 				type="text"
-				autocomplete="username"
-				placeholder="Nombre de usuario"
-				bind:value={name}
+				autocomplete="given-name"
+				placeholder="Tu nombre"
+				bind:value={firstName}
 				disabled={loading}
-				aria-invalid={!!nameError}
-				aria-describedby={nameError ? 'register-name-error' : undefined}
+				aria-invalid={!!firstNameError}
+				aria-describedby={firstNameError ? 'register-first-name-error' : undefined}
 			/>
-			{#if nameError}
-				<span id="register-name-error" class="auth-field-error">{nameError}</span>
+			{#if firstNameError}
+				<span id="register-first-name-error" class="auth-field-error">{firstNameError}</span>
+			{/if}
+		</div>
+
+		<div class="auth-field">
+			<label for="register-last-name">Apellido</label>
+			<input
+				id="register-last-name"
+				type="text"
+				autocomplete="family-name"
+				placeholder="Tu apellido"
+				bind:value={lastName}
+				disabled={loading}
+				aria-invalid={!!lastNameError}
+				aria-describedby={lastNameError ? 'register-last-name-error' : undefined}
+			/>
+			{#if lastNameError}
+				<span id="register-last-name-error" class="auth-field-error">{lastNameError}</span>
 			{/if}
 		</div>
 

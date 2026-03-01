@@ -1,34 +1,34 @@
 <script lang="ts">
 	import {goto} from '$app/navigation';
 	import {authStore} from '$lib/stores/auth.store';
-	import {validateUsername, validatePassword} from '$lib/utils/validators';
+	import {validateEmail, validatePassword} from '$lib/utils/validators';
 	import AuthCard from './AuthCard.svelte';
 	import './LoginForm.css';
 
-	let username = $state('');
+	let email = $state('');
 	let password = $state('');
 	let loading = $state(false);
 	let error = $state<string | null>(null);
-	let usernameError = $state<string | null>(null);
+	let emailError = $state<string | null>(null);
 	let passwordError = $state<string | null>(null);
 
 	function validate(): boolean {
-		usernameError = validateUsername(username);
-		passwordError = validatePassword(password);
-		return !usernameError && !passwordError;
+		emailError = validateEmail(email);
+		passwordError = validatePassword(password, 8);
+		return !emailError && !passwordError;
 	}
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 		error = null;
-		usernameError = null;
+		emailError = null;
 		passwordError = null;
 
 		if (!validate()) return;
 
 		loading = true;
 		try {
-			await authStore.login(username, password);
+			await authStore.login(email, password);
 			goto('/dashboard', { replaceState: true });
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Error al iniciar sesión';
@@ -48,19 +48,19 @@
 		{/if}
 
 		<div class="auth-field">
-			<label for="login-username">Usuario</label>
+			<label for="login-email">Email</label>
 			<input
-				id="login-username"
-				type="text"
-				autocomplete="username"
-				placeholder="Tu nombre de usuario"
-				bind:value={username}
+				id="login-email"
+				type="email"
+				autocomplete="email"
+				placeholder="tu@email.com"
+				bind:value={email}
 				disabled={loading}
-				aria-invalid={!!usernameError}
-				aria-describedby={usernameError ? 'login-username-error' : undefined}
+				aria-invalid={!!emailError}
+				aria-describedby={emailError ? 'login-email-error' : undefined}
 			/>
-			{#if usernameError}
-				<span id="login-username-error" class="auth-field-error">{usernameError}</span>
+			{#if emailError}
+				<span id="login-email-error" class="auth-field-error">{emailError}</span>
 			{/if}
 		</div>
 
@@ -96,4 +96,3 @@
 		<a href="/register" class="auth-link">Regístrate</a>
 	</p>
 </AuthCard>
-

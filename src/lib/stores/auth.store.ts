@@ -31,15 +31,22 @@ function createAuthStore() {
 			set({ user: null, token: null });
 		},
 
-		async login(username: string, password: string) {
-			const { user, token } = await authService.login({ username, password });
+		async login(email: string, password: string) {
+			const { user, token } = await authService.login({ email, password });
 			set({ user, token });
 			return { user, token };
 		},
 
-		async register(name: string, email: string, password: string, passwordConfirm: string) {
+		async register(
+			first_name: string,
+			last_name: string,
+			email: string,
+			password: string,
+			passwordConfirm: string
+		) {
 			const { user, token } = await authService.register({
-				name,
+				first_name,
+				last_name,
 				email,
 				password,
 				passwordConfirm

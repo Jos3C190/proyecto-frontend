@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { authStore } from '$lib/stores/auth.store';
+	import { getDisplayName, hasRole } from '$lib/types';
 	import Icon from '$lib/components/icons/Icon.svelte';
 	import './Sidebar.css';
 
@@ -12,7 +13,7 @@
 
 	$: navItems = [
 		{ href: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
-		...(($authStore.user?.role === 'admin')
+		...(hasRole($authStore.user, 'admin')
 			? [{ href: '/admin', label: 'Admin', icon: 'admin' }]
 			: [])
 	];
@@ -38,10 +39,10 @@
 	</nav>
 	<div class="sidebar-footer">
 		<div class="sidebar-user">
-			<span class="sidebar-user-name">{$authStore.user?.name ?? $authStore.user?.username ?? 'Usuario'}</span>
+			<span class="sidebar-user-name">{getDisplayName($authStore.user)}</span>
 			<span class="sidebar-user-email">{$authStore.user?.email ?? ''}</span>
-			{#if $authStore.user?.role}
-				<span class="sidebar-user-role">{$authStore.user.role}</span>
+			{#if $authStore.user?.roles?.length}
+				<span class="sidebar-user-role">{$authStore.user.roles.map(r => r.name).join(', ')}</span>
 			{/if}
 		</div>
 		<button

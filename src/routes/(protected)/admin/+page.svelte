@@ -3,16 +3,31 @@
 	import {onMount} from 'svelte';
 	import {authStore} from '$lib/stores/auth.store';
 	import {API_BASE} from '$lib/config/api';
+	import {hasRole} from '$lib/types';
+	import type { User } from '$lib/types';
 	import './adminPage.css';
 
-	let users = $state<Array<{ id: number; username: string; email: string; role: string }>>([]);
+	let users = $state<User[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+
+	function displayName(u: User): string {
+		const p = u.profile;
+		if (p?.first_name?.trim() || p?.last_name?.trim()) {
+			return [p.first_name?.trim(), p.last_name?.trim()].filter(Boolean).join(' ').trim();
+		}
+		return u.email ?? '—';
+	}
+
+	function rolesLabel(u: User): string {
+		if (!u.roles?.length) return '—';
+		return u.roles.map((r) => r.name).join(', ');
+	}
 
 	onMount(async () => {
 		const user = $authStore.user;
 		const token = $authStore.token;
-		if (!user || user.role !== 'admin') {
+		if (!hasRole(user, 'admin')) {
 			goto('/dashboard', { replaceState: true });
 			return;
 		}
@@ -54,9 +69,9 @@
 			<ul class="admin-list">
 				{#each users as u}
 					<li class="admin-list-item">
-						<span class="admin-user-name">{u.username}</span>
+						<span class="admin-user-name">{displayName(u)}</span>
 						<span class="admin-user-email">{u.email}</span>
-						<span class="admin-user-role">{u.role}</span>
+						<span class="admin-user-role">{rolesLabel(u)}</span>
 					</li>
 				{/each}
 			</ul>
