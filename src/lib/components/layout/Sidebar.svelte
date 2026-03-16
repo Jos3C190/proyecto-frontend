@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { authStore } from '$lib/stores/auth.store';
-	import { getDisplayName, hasRole } from '$lib/types';
+	import { getDisplayName, hasPermission } from '$lib/types';
 	import Icon from '$lib/components/icons/Icon.svelte';
 	import './Sidebar.css';
 
@@ -11,11 +11,16 @@
 		goto('/login', { replaceState: true });
 	}
 
+	$: adminItems = [
+		{ href: '/admin/usuarios', label: 'Usuarios', icon: 'users' as const, resource: 'users' as const },
+		{ href: '/admin/roles', label: 'Roles', icon: 'roles' as const, resource: 'roles' as const },
+		{ href: '/admin/permisos', label: 'Permisos', icon: 'permissions' as const, resource: 'permissions' as const },
+		{ href: '/admin/bitacora', label: 'Bitácora', icon: 'audit' as const, resource: 'audit_logs' as const }
+	].filter((item) => hasPermission($authStore.user, item.resource, 'read'));
+
 	$: navItems = [
-		{ href: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
-		...(hasRole($authStore.user, 'admin')
-			? [{ href: '/admin', label: 'Admin', icon: 'admin' }]
-			: [])
+		{ href: '/dashboard', label: 'Dashboard', icon: 'dashboard' as const },
+		...adminItems
 	];
 </script>
 

@@ -30,7 +30,18 @@ function clearStored(): void {
 	localStorage.removeItem(STORAGE_KEY);
 }
 
-/** Tipo que devuelve el backend en GET /users/me y GET /admin/users */
+/** Tipo que devuelve el backend en GET /users/me (incluye permissions) */
+interface UserMeReadRaw {
+	id: number;
+	email: string;
+	is_active: boolean;
+	is_verified: boolean;
+	roles: RoleRead[];
+	profile?: UserProfileRead | null;
+	permissions?: string[];
+}
+
+/** Tipo que devuelve GET /admin/users (sin permissions) */
 interface UserReadRaw {
 	id: number;
 	email: string;
@@ -40,15 +51,16 @@ interface UserReadRaw {
 	profile?: UserProfileRead | null;
 }
 
-/** Mapea UserRead del backend a User del frontend */
-function mapUser(raw: UserReadRaw): User {
+/** Mapea UserMeRead del backend (con permissions) a User del frontend */
+function mapUser(raw: UserMeReadRaw): User {
 	return {
 		id: raw.id,
 		email: raw.email,
 		is_active: raw.is_active ?? true,
 		is_verified: raw.is_verified ?? false,
 		roles: raw.roles ?? [],
-		profile: raw.profile ?? null
+		profile: raw.profile ?? null,
+		permissions: raw.permissions ?? []
 	};
 }
 

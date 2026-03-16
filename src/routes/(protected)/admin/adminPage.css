@@ -1,49 +1,142 @@
 @reference '../../layout.css';
 
 .admin-page {
-    @apply max-w-2xl;
+	@apply w-full max-w-6xl space-y-3;
 }
 
 .admin-title {
-    @apply text-2xl font-semibold text-slate-800 dark:text-slate-100;
+	@apply text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-50;
 }
 
 .admin-desc {
-    @apply mt-1 text-slate-600 dark:text-slate-300;
+	@apply mt-2 text-sm text-slate-600 dark:text-slate-300;
+}
+
+.admin-toolbar {
+	@apply mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 px-4 py-3 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-gradient-to-r dark:from-slate-900 dark:via-slate-800 dark:to-slate-900;
+}
+
+.admin-hint {
+	@apply text-sm text-slate-500 dark:text-slate-400;
+}
+
+.admin-btn {
+	@apply rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-indigo-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-indigo-500 dark:hover:bg-indigo-400 dark:focus:ring-offset-slate-900;
+}
+
+.admin-btn-secondary {
+	@apply rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700;
+}
+
+.admin-btn-secondary:disabled {
+	@apply cursor-not-allowed opacity-50 hover:bg-white dark:hover:bg-slate-800;
+}
+
+.admin-btn-danger {
+	@apply rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-red-700 hover:shadow-md;
+}
+
+.admin-btn-danger:disabled {
+	@apply cursor-not-allowed opacity-50 hover:translate-y-0 hover:bg-red-600 hover:shadow-sm;
 }
 
 .admin-loading {
-    @apply mt-4 text-slate-500 dark:text-slate-400;
+	@apply mt-4 text-slate-500 dark:text-slate-400;
 }
 
 .admin-error {
-    @apply mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300;
+	@apply mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300;
 }
 
 .admin-section {
-    @apply mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-600 dark:bg-slate-800;
+	@apply mt-6 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/60;
 }
 
 .admin-section-title {
-    @apply text-lg font-medium text-slate-800 dark:text-slate-100;
+	@apply text-lg font-medium text-slate-800 dark:text-slate-100;
 }
 
-.admin-list {
-    @apply mt-3 list-none space-y-2 p-0;
+.admin-table {
+	@apply mt-3 min-w-full border-collapse text-sm;
 }
 
-.admin-list-item {
-    @apply flex flex-wrap items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700;
+.admin-table-wrapper {
+	@apply -mx-4 mt-3 overflow-x-auto px-4;
 }
 
-.admin-user-name {
-    @apply font-medium text-slate-800 dark:text-slate-100;
+.admin-table th {
+	@apply border-b border-slate-200 bg-slate-50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200;
 }
 
-.admin-user-email {
-    @apply text-slate-500 dark:text-slate-400;
+.admin-table td {
+	@apply border-b border-slate-100 px-3 py-2 text-sm text-slate-800 dark:border-slate-700 dark:text-slate-100;
 }
 
-.admin-user-role {
-    @apply rounded bg-indigo-100 px-1.5 py-0.5 text-xs font-medium uppercase text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300;
+.admin-table tr:hover td {
+	@apply bg-slate-50/80 dark:bg-slate-800/80;
+}
+
+.admin-badge {
+	@apply inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold uppercase text-indigo-700 ring-1 ring-inset ring-indigo-100 dark:bg-indigo-900/40 dark:text-indigo-200 dark:ring-indigo-700/70;
+}
+
+.admin-badge-inactive {
+	@apply rounded bg-slate-200 px-1.5 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-600 dark:text-slate-300;
+}
+
+.admin-modal-overlay {
+	@apply fixed inset-0 z-50 flex items-center justify-center bg-black/50;
+}
+
+.admin-modal {
+	@apply max-h-[90vh] w-full max-w-lg overflow-auto rounded-lg bg-white p-6 shadow-xl dark:bg-slate-800;
+}
+
+.admin-modal-title {
+	@apply mb-4 text-lg font-semibold text-slate-800 dark:text-slate-100;
+}
+
+.admin-field {
+	@apply mb-4;
+}
+
+.admin-field label {
+	@apply mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300;
+}
+
+.admin-field input,
+.admin-field select {
+	@apply w-full rounded border border-slate-300 px-3 py-2 text-slate-800 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200;
+}
+
+.admin-field-error {
+	@apply mt-1 text-sm text-red-600 dark:text-red-400;
+}
+
+.admin-modal-actions {
+	@apply mt-6 flex justify-end gap-2;
+}
+
+.admin-pagination {
+	@apply mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3 dark:border-slate-600;
+}
+
+.admin-pagination-left {
+	@apply flex flex-wrap items-center gap-3 text-sm text-slate-600 dark:text-slate-300;
+}
+
+.admin-pagination-right {
+	@apply flex items-center gap-2;
+}
+
+.admin-pagination-info {
+	@apply rounded-md bg-slate-100 px-2 py-1 text-sm font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200;
+}
+
+.admin-page-size {
+	@apply flex items-center gap-2;
+}
+
+.admin-page-size select {
+	@apply rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200;
 }

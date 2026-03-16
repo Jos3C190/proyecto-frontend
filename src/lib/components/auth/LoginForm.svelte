@@ -92,7 +92,5 @@
 	</form>
 
 	<p class="auth-footer">
-		¿No tienes cuenta?
-		<a href="/register" class="auth-link">Regístrate</a>
 	</p>
 </AuthCard>

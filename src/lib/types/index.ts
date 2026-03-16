@@ -22,6 +22,8 @@ export interface User {
 	is_verified: boolean;
 	roles: RoleRead[];
 	profile?: UserProfileRead | null;
+	/** Permisos efectivos (resource:action) desde Casbin */
+	permissions?: string[];
 }
 
 export interface AuthState {
@@ -62,4 +64,19 @@ export function getDisplayName(user: User | null): string {
 export function hasRole(user: User | null, roleName: string): boolean {
 	if (!user?.roles?.length) return false;
 	return user.roles.some((r) => r.name === roleName);
+}
+
+/** Comprueba si el usuario tiene permiso (resource:action) según Casbin */
+export function hasPermission(user: User | null, resource: string, action: string): boolean {
+	if (!user?.permissions?.length) return false;
+	const key = `${resource}:${action}`;
+	return user.permissions.includes(key);
+}
+
+/** Comprueba si el usuario tiene al menos uno de los permisos indicados (para menús) */
+export function hasAnyPermission(
+	user: User | null,
+	checks: Array<[resource: string, action: string]>
+): boolean {
+	return checks.some(([resource, action]) => hasPermission(user, resource, action));
 }
