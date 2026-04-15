@@ -4,6 +4,7 @@
  */
 import { API_BASE } from '$lib/config/api';
 import type { User, RoleRead } from '$lib/types';
+import type { PaymentRead } from '$lib/types/reservation';
 
 function getAuthHeaders(): HeadersInit {
 	const raw = typeof window !== 'undefined' ? localStorage.getItem('auth') : null;
@@ -20,6 +21,12 @@ export interface UserCreateAdmin {
 	email: string;
 	password: string;
 	role_id: number;
+	phone?: string | null;
+	date_of_birth?: string | null;
+	country?: string | null;
+	department?: string | null;
+	municipality?: string | null;
+	address_complement?: string | null;
 }
 
 export interface UserUpdateAdmin {
@@ -28,6 +35,12 @@ export interface UserUpdateAdmin {
 	email?: string;
 	role_id?: number;
 	is_active?: boolean;
+	phone?: string | null;
+	date_of_birth?: string | null;
+	country?: string | null;
+	department?: string | null;
+	municipality?: string | null;
+	address_complement?: string | null;
 }
 
 export interface RoleCreate {
@@ -160,6 +173,28 @@ export async function fetchPermissionsMetadata(): Promise<PermissionsMetadata> {
 	return res.json();
 }
 
+export async function createPermissionResource(name: string): Promise<{ name: string }> {
+	const res = await fetch(`${API_BASE}/admin/permissions/resources`, {
+		method: 'POST',
+		headers: getAuthHeaders(),
+		body: JSON.stringify({ name })
+	});
+	const body = await res.json().catch(() => ({}));
+	if (!res.ok) throw new Error(body.detail ?? 'Error al crear recurso');
+	return body;
+}
+
+export async function deletePermissionResource(name: string): Promise<void> {
+	const res = await fetch(`${API_BASE}/admin/permissions/resources/${name}`, {
+		method: 'DELETE',
+		headers: getAuthHeaders()
+	});
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({}));
+		throw new Error(err.detail ?? 'Error al eliminar recurso');
+	}
+}
+
 export async function fetchPolicies(params?: { limit?: number; offset?: number }): Promise<PolicyRead[]> {
 	const q = new URLSearchParams();
 	if (params?.limit != null) q.set('limit', String(params.limit));
@@ -195,17 +230,55 @@ export async function deletePolicy(sub: string, obj: string, act: string): Promi
 
 export async function fetchAuditLogs(params?: {
 	event_type?: string;
+	method?: string;
 	user_id?: number;
 	limit?: number;
 	offset?: number;
 }): Promise<AuditLogRead[]> {
 	const q = new URLSearchParams();
 	if (params?.event_type) q.set('event_type', params.event_type);
+	if (params?.method) q.set('method', params.method);
 	if (params?.user_id != null) q.set('user_id', String(params.user_id));
 	if (params?.limit != null) q.set('limit', String(params.limit));
 	if (params?.offset != null) q.set('offset', String(params.offset));
 	const url = `${API_BASE}/admin/audit-logs${q.toString() ? '?' + q : ''}`;
 	const res = await fetch(url, { headers: getAuthHeaders() });
 	if (!res.ok) throw new Error('Error al cargar bitácora');
+	return res.json();
+}
+
+/**
+ * Listado de pagos administrativos con filtros.
+ */
+export async function fetchPayments(params?: {
+	start_date?: string;
+	end_date?: string;
+	method?: string;
+	status?: string;
+	limit?: number;
+	offset?: number;
+}): Promise<PaymentRead[]> {
+	const q = new URLSearchParams();
+	if (params?.start_date) q.set('start_date', params.start_date);
+	if (params?.end_date) q.set('end_date', params.end_date);
+	if (params?.method) q.set('method', params.method);
+	if (params?.status) q.set('status', params.status);
+	if (params?.limit != null) q.set('limit', String(params.limit));
+	if (params?.offset != null) q.set('offset', String(params.offset));
+
+	const url = `${API_BASE}/admin/payments${q.toString() ? '?' + q : ''}`;
+	const res = await fetch(url, { headers: getAuthHeaders() });
+	if (!res.ok) throw new Error('Error al cargar pagos');
+	return res.json();
+}
+
+/**
+ * Detalle de un pago específico.
+ */
+export async function fetchPaymentDetail(paymentId: number): Promise<PaymentRead> {
+	const res = await fetch(`${API_BASE}/admin/payments/${paymentId}`, {
+		headers: getAuthHeaders()
+	});
+	if (!res.ok) throw new Error('Error al cargar detalle del pago');
 	return res.json();
 }

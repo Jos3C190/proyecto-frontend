@@ -1,55 +1,56 @@
 @reference '../../../routes/layout.css';
 
 .sidebar {
-    @apply flex w-56 flex-col border-r border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800;
-}
-
-.sidebar-header {
-    @apply border-b border-slate-200 p-4 dark:border-slate-700;
-}
-
-.sidebar-brand {
-    @apply text-lg font-semibold text-slate-800 no-underline hover:text-indigo-600 dark:text-slate-100 dark:hover:text-indigo-400;
+    @apply flex w-64 flex-col h-full border-r border-slate-200/50 bg-white/70 backdrop-blur-xl dark:border-slate-800/50 dark:bg-[#0B0E14]/80 transition-all duration-300 z-20;
 }
 
 .sidebar-nav {
-    @apply flex flex-1 flex-col gap-0.5 p-2;
+    @apply flex flex-1 flex-col gap-1.5 p-4 overflow-y-auto;
 }
 
 .sidebar-link {
-    @apply flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 no-underline transition hover:bg-slate-200 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100;
+    @apply relative flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-600 no-underline transition-colors duration-150 hover:bg-[#D4AF37]/10 hover:text-[#D4AF37] dark:text-slate-400 dark:hover:bg-[#D4AF37]/10 dark:hover:text-[#D4AF37];
 }
 
 .sidebar-link.active {
-    @apply bg-indigo-100 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 dark:hover:bg-indigo-900/40 dark:hover:text-indigo-200;
+    @apply text-[#0B0E14] font-bold tracking-wide dark:text-[#0B0E14];
+}
+
+.sidebar-link-bg {
+    @apply absolute inset-0 bg-gradient-to-r from-[#D4AF37] to-[#AA8222] shadow-lg shadow-[#D4AF37]/20 rounded-xl;
+    z-index: -1;
 }
 
 .sidebar-icon {
-    @apply flex size-5 shrink-0 items-center justify-center text-base [&_svg]:size-5;
+    @apply flex size-5 shrink-0 items-center justify-center text-lg [&_svg]:size-5 opacity-80;
+}
+
+.sidebar-link.active .sidebar-icon {
+    @apply opacity-100;
 }
 
 .sidebar-footer {
-    @apply border-t border-slate-200 p-3 dark:border-slate-700;
+    @apply border-t border-slate-200/50 p-4 dark:border-slate-800/50;
 }
 
 .sidebar-user {
-    @apply mb-2 flex flex-col truncate rounded-lg bg-slate-100 px-3 py-2 text-xs dark:bg-slate-700;
+    @apply mb-4 flex flex-col truncate rounded-xl border border-slate-200/50 bg-white/50 p-4 shadow-sm dark:border-slate-700/50 dark:bg-slate-800/50;
 }
 
 .sidebar-user-name {
-    @apply font-medium text-slate-800 dark:text-slate-100;
+    @apply font-['Outfit'] text-base text-slate-800 dark:text-slate-100 font-medium;
 }
 
 .sidebar-user-email {
-    @apply text-slate-500 dark:text-slate-400;
+    @apply mt-0.5 text-xs text-slate-500 dark:text-slate-400;
 }
 
 .sidebar-user-role {
-    @apply mt-1 inline-block rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium uppercase text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300;
+    @apply mt-2.5 inline-flex items-center justify-center rounded-md bg-[#D4AF37]/10 border border-[#D4AF37]/20 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-[#D4AF37];
 }
 
 .sidebar-logout {
-    @apply flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 dark:focus:ring-offset-slate-800;
+    @apply flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50/50 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-red-600 transition-all hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:border-red-900/30 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 dark:focus:ring-offset-slate-900 cursor-pointer;
 }
 
 .sidebar-logout .sidebar-logout-icon {

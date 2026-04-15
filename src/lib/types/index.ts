@@ -13,7 +13,24 @@ export interface UserProfileRead {
 	phone?: string | null;
 	avatar_url?: string | null;
 	date_of_birth?: string | null;
+	country?: string | null;
+	department?: string | null;
+	municipality?: string | null;
+	address_complement?: string | null;
 }
+
+export interface UserProfileUpdate {
+	first_name?: string | null;
+	last_name?: string | null;
+	phone?: string | null;
+	avatar_url?: string | null;
+	date_of_birth?: string | null;
+	country?: string | null;
+	department?: string | null;
+	municipality?: string | null;
+	address_complement?: string | null;
+}
+
 
 export interface User {
 	id: number;

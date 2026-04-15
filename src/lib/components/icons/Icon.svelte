@@ -19,6 +19,18 @@
 	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={iconClass} aria-hidden="true">
 		<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
 	</svg>
+{:else if name === 'home'}
+	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={iconClass} aria-hidden="true">
+		<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+		<polyline points="9 22 9 12 15 12 15 22" />
+	</svg>
+{:else if name === 'clipboard'}
+	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={iconClass} aria-hidden="true">
+		<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+		<rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+		<line x1="8" y1="10" x2="16" y2="10" />
+		<line x1="8" y1="14" x2="16" y2="14" />
+	</svg>
 {:else if name === 'users'}
 	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={iconClass} aria-hidden="true">
 		<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -53,5 +65,10 @@
 		<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
 		<polyline points="16 17 21 12 16 7" />
 		<line x1="21" x2="9" y1="12" y2="12" />
+	</svg>
+{:else if name === 'payments'}
+	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={iconClass} aria-hidden="true">
+		<rect x="2" y="5" width="20" height="14" rx="2" />
+		<line x1="2" y1="10" x2="22" y2="10" />
 	</svg>
 {/if}

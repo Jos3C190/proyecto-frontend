@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { toast } from '$lib/stores/toast.svelte';
 	import { authStore } from '$lib/stores/auth.store';
 	import { hasPermission } from '$lib/types';
 	import {
@@ -23,10 +24,30 @@
 	let formError = $state<string | null>(null);
 	let formLoading = $state(false);
 
+	let hasAccess = $derived(hasPermission($authStore.user, 'roles', 'read'));
+
+	// Pagination
+	let page = $state(1);
+	let pageSize = $state(10);
+	let paginatedRoles = $derived(roles.slice((page - 1) * pageSize, page * pageSize));
+	let totalPages = $derived(Math.ceil(roles.length / pageSize) || 1);
+	let hasNextPage = $derived(page < totalPages);
+	let hasPrevPage = $derived(page > 1);
+
+	function nextPage() { if (hasNextPage) page++; }
+	function prevPage() { if (hasPrevPage) page--; }
+	function setPageSize(e: Event) {
+		const v = Number((e.currentTarget as HTMLSelectElement).value);
+		if (!Number.isFinite(v) || v <= 0) return;
+		pageSize = v;
+		page = 1;
+	}
+
 	async function load() {
 		try {
 			roles = await fetchRoles();
 			error = null;
+			page = 1; // Reset memory to first page
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Error de conexión';
 		} finally {
@@ -65,10 +86,12 @@
 				description: formData.description.trim() || null
 			};
 			await createRole(data);
+			toast.success(`Rol "${data.name}" creado`);
 			closeModals();
 			await load();
 		} catch (e) {
 			formError = e instanceof Error ? e.message : 'Error al crear rol';
+			toast.error(formError);
 		} finally {
 			formLoading = false;
 		}
@@ -89,10 +112,12 @@
 				description: formData.description.trim() || null
 			};
 			await updateRole(editingRole.id, data);
+			toast.success(`Rol "${data.name}" actualizado`);
 			closeModals();
 			await load();
 		} catch (e) {
 			formError = e instanceof Error ? e.message : 'Error al actualizar rol';
+			toast.error(formError);
 		} finally {
 			formLoading = false;
 		}
@@ -102,9 +127,11 @@
 		if (!confirm(`¿Eliminar el rol "${r.name}"? Los usuarios con este rol deberán ser reasignados primero.`)) return;
 		try {
 			await deleteRole(r.id);
+			toast.success(`Rol "${r.name}" eliminado`);
 			await load();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Error al eliminar rol';
+			const msg = e instanceof Error ? e.message : 'Error al eliminar rol';
+			toast.error(msg);
 		}
 	}
 
@@ -117,14 +144,18 @@
 	});
 </script>
 
-<div class="admin-page">
-	<h1 class="admin-title">Roles</h1>
-	<p class="admin-desc">Crea y edita roles. Asigna permisos desde la sección Permisos.</p>
-
-	<div class="admin-toolbar">
-		{#if hasPermission($authStore.user, 'roles', 'create')}
-			<button type="button" class="admin-btn" onclick={openCreate}>Crear rol</button>
-		{/if}
+{#if hasAccess}
+<div class="admin-page fade-in">
+	<div class="admin-header-container">
+		<div>
+			<h1 class="admin-title">Roles</h1>
+			<p class="admin-desc">Crea y edita roles. Asigna permisos desde la sección Permisos.</p>
+		</div>
+		<div class="admin-toolbar">
+			{#if hasPermission($authStore.user, 'roles', 'create')}
+				<button type="button" class="admin-btn" onclick={openCreate}>Crear Rol</button>
+			{/if}
+		</div>
 	</div>
 
 	{#if loading}
@@ -142,34 +173,65 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each roles as r}
+					{#each paginatedRoles as r}
 						<tr>
 							<td><span class="admin-badge">{r.name}</span></td>
 							<td>{r.description ?? '—'}</td>
 							<td>
-								{#if hasPermission($authStore.user, 'roles', 'update')}
-									<button
-										type="button"
-										class="admin-btn-secondary mr-2"
-										onclick={() => openEdit(r)}
-									>
-										Editar
-									</button>
-								{/if}
-								{#if hasPermission($authStore.user, 'roles', 'delete')}
-									<button
-										type="button"
-										class="admin-btn-danger"
-										onclick={() => handleDelete(r)}
-									>
-										Eliminar
-									</button>
-								{/if}
+								<div class="flex items-center gap-2">
+									{#if r.name === 'admin' || r.name === 'cliente'}
+										<span class="admin-badge-system">Sistema</span>
+									{:else}
+										{#if hasPermission($authStore.user, 'roles', 'update')}
+											<button
+												class="action-icon-btn"
+												onclick={() => openEdit(r)}
+												title="Editar"
+											>
+												<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+											</button>
+										{/if}
+										{#if hasPermission($authStore.user, 'roles', 'delete')}
+											<button
+												class="action-icon-btn danger"
+												onclick={() => handleDelete(r)}
+												title="Eliminar"
+											>
+												<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+											</button>
+										{/if}
+									{/if}
+								</div>
 							</td>
 						</tr>
 					{/each}
 				</tbody>
 			</table>
+
+			<div class="admin-pagination">
+				<div class="admin-pagination-left">
+					<span>Mostrando {roles.length} rol(es)</span>
+					<div class="admin-page-size">
+						<label for="page-size-roles" class="text-sm">Filas:</label>
+						<select id="page-size-roles" value={pageSize} onchange={setPageSize}>
+							<option value="10">10</option>
+							<option value="25">25</option>
+							<option value="50">50</option>
+							<option value="100">100</option>
+						</select>
+					</div>
+				</div>
+
+				<div class="admin-pagination-right">
+					<button class="admin-btn-secondary" onclick={prevPage} disabled={!hasPrevPage}>
+						Anterior
+					</button>
+					<span class="admin-pagination-info">Página {page} de {totalPages}</span>
+					<button class="admin-btn-secondary" onclick={nextPage} disabled={!hasNextPage}>
+						Siguiente
+					</button>
+				</div>
+			</div>
 		</section>
 	{/if}
 </div>
@@ -226,4 +288,5 @@
 			</form>
 		</div>
 	</div>
+{/if}
 {/if}

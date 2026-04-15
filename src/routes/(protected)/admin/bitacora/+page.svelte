@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { toast } from '$lib/stores/toast.svelte';
 	import { authStore } from '$lib/stores/auth.store';
 	import { hasPermission } from '$lib/types';
 	import { fetchAuditLogs } from '$lib/services/admin.service';
@@ -10,10 +11,12 @@
 	let logs = $state<AuditLogRead[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
-	let filterEventType = $state('');
+	let filterMethod = $state('');
 	let limit = $state(100);
 let page = $state(1);
 let hasNextPage = $state(false);
+
+let hasAccess = $derived(hasPermission($authStore.user, 'audit_logs', 'read'));
 
 function setPageSize(e: Event) {
 	const v = Number((e.currentTarget as HTMLSelectElement).value);
@@ -29,7 +32,7 @@ async function load(targetPage?: number) {
 		const offset = (currentPage - 1) * limit;
 
 		const result = await fetchAuditLogs({
-				event_type: filterEventType || undefined,
+				method: filterMethod || undefined,
 			limit: limit + 1,
 			offset
 			});
@@ -39,6 +42,7 @@ async function load(targetPage?: number) {
 			error = null;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Error de conexión';
+			toast.error('Error al cargar bitácora: ' + error);
 		} finally {
 			loading = false;
 		}
@@ -72,26 +76,29 @@ function prevPage() {
 	});
 </script>
 
-<div class="admin-page">
-	<h1 class="admin-title">Bitácora</h1>
-	<p class="admin-desc">Registro de acciones del sistema: logins, cambios en usuarios, roles y permisos.</p>
-
-	<div class="admin-toolbar">
-		<div class="flex items-center gap-2">
-			<label for="filter-event" class="text-sm text-slate-600 dark:text-slate-400">Tipo:</label>
-			<select
-				id="filter-event"
-				class="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
-				bind:value={filterEventType}
-				onchange={() => load(1)}
-			>
-				<option value="">Todos</option>
-				<option value="login_success">Login exitoso</option>
-				<option value="login_failure">Login fallido</option>
-				<option value="action">Acción autorizada</option>
-			</select>
+{#if hasAccess}
+<div class="admin-page fade-in">
+	<div class="admin-header-container">
+		<div>
+			<h1 class="admin-title">Bitácora</h1>
+			<p class="admin-desc">Registro de acciones del sistema: creaciones, modificaciones y eliminaciones de usuarios, roles o permisos.</p>
 		</div>
-		<button type="button" class="admin-btn-secondary" onclick={() => load(page)}>Actualizar</button>
+		<div class="admin-toolbar">
+			<div class="flex items-center gap-3">
+				<label for="filter-method" class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Método:</label>
+				<select
+					id="filter-method"
+					bind:value={filterMethod}
+					onchange={() => load(1)}
+				>
+					<option value="">Todos</option>
+					<option value="POST">Crear (POST)</option>
+					<option value="UPDATE">Actualizar (PUT/PATCH)</option>
+					<option value="DELETE">Eliminar (DELETE)</option>
+				</select>
+			</div>
+			<button type="button" class="admin-btn-secondary" onclick={async () => { await load(page); toast.info('Bitácora actualizada'); }}>Actualizar</button>
+		</div>
 	</div>
 
 	{#if loading}
@@ -160,3 +167,4 @@ function prevPage() {
 		</section>
 	{/if}
 </div>
+{/if}

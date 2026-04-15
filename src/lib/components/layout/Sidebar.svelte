@@ -4,7 +4,14 @@
 	import { authStore } from '$lib/stores/auth.store';
 	import { getDisplayName, hasPermission } from '$lib/types';
 	import Icon from '$lib/components/icons/Icon.svelte';
+	import { crossfade } from 'svelte/transition';
+	import { quintOut } from 'svelte/easing';
 	import './Sidebar.css';
+
+	const [send, receive] = crossfade({
+		duration: 350,
+		easing: quintOut
+	});
 
 	function handleLogout() {
 		authStore.clearAuth();
@@ -12,33 +19,38 @@
 	}
 
 	$: adminItems = [
+		{ href: '/dashboard', label: 'Dashboard', icon: 'dashboard' as const, resource: 'dashboard' as const },
 		{ href: '/admin/usuarios', label: 'Usuarios', icon: 'users' as const, resource: 'users' as const },
+		{ href: '/admin/habitaciones', label: 'Habitaciones', icon: 'home' as const, resource: 'rooms' as const },
+		{ href: '/admin/reservaciones', label: 'Todas las Reservaciones', icon: 'clipboard' as const, resource: 'reservations' as const },
+		{ href: '/admin/pagos', label: 'Pagos', icon: 'payments' as const, resource: 'payments' as const },
 		{ href: '/admin/roles', label: 'Roles', icon: 'roles' as const, resource: 'roles' as const },
 		{ href: '/admin/permisos', label: 'Permisos', icon: 'permissions' as const, resource: 'permissions' as const },
 		{ href: '/admin/bitacora', label: 'Bitácora', icon: 'audit' as const, resource: 'audit_logs' as const }
 	].filter((item) => hasPermission($authStore.user, item.resource, 'read'));
 
-	$: navItems = [
-		{ href: '/dashboard', label: 'Dashboard', icon: 'dashboard' as const },
-		...adminItems
-	];
+	$: navItems = adminItems;
 </script>
 
 <aside class="sidebar">
-	<div class="sidebar-header">
-		<a href="/dashboard" class="sidebar-brand">App AFE</a>
-	</div>
-	<nav class="sidebar-nav" aria-label="Principal">
+	<nav class="sidebar-nav pt-6 relative" aria-label="Principal">
 		{#each navItems as item}
 			<a
 				href={item.href}
 				class="sidebar-link"
 				class:active={$page.url.pathname === item.href}
 			>
-				<span class="sidebar-icon" aria-hidden="true">
+				{#if $page.url.pathname === item.href}
+					<div 
+						class="sidebar-link-bg"
+						in:receive={{ key: 'active-pill' }}
+						out:send={{ key: 'active-pill' }}
+					></div>
+				{/if}
+				<span class="sidebar-icon relative" aria-hidden="true">
 					<Icon name={item.icon} />
 				</span>
-				{item.label}
+				<span class="relative z-10">{item.label}</span>
 			</a>
 		{/each}
 	</nav>

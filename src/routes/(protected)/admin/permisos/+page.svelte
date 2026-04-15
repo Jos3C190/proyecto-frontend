@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { toast } from '$lib/stores/toast.svelte';
 	import { authStore } from '$lib/stores/auth.store';
 	import { hasPermission } from '$lib/types';
 	import {
@@ -9,6 +10,8 @@
 		fetchPermissionsMetadata,
 		createPolicy,
 		deletePolicy,
+        createPermissionResource,
+        deletePermissionResource,
 		type PolicyCreate
 	} from '$lib/services/admin.service';
 	import type { PolicyRead } from '$lib/services/admin.service';
@@ -25,9 +28,15 @@
 	let formData = $state({ sub: '', obj: '', act: '' });
 	let formError = $state<string | null>(null);
 	let formLoading = $state(false);
+	
+	let showResourceModal = $state(false);
+	let newResourceName = $state('');
+	let resourceLoading = $state(false);
 let page = $state(1);
 let pageSize = $state(100);
 let hasNextPage = $state(false);
+
+let hasAccess = $derived(hasPermission($authStore.user, 'permissions', 'read'));
 
 async function load(targetPage?: number) {
 	loading = true;
@@ -86,6 +95,51 @@ function setPageSize(e: Event) {
 		showCreate = false;
 	}
 
+	function openResourceModal() {
+		showResourceModal = true;
+		newResourceName = '';
+		formError = null;
+	}
+
+	async function handleCreateResource(e: Event) {
+		e.preventDefault();
+		formError = null;
+		if (!newResourceName.trim()) {
+			formError = 'El nombre del recurso es requerido.';
+			return;
+		}
+		resourceLoading = true;
+		try {
+			await createPermissionResource(newResourceName.trim());
+			toast.success(`Recurso "${newResourceName}" creado`);
+			const metadata = await fetchPermissionsMetadata();
+			resources = metadata.resources;
+			newResourceName = '';
+		} catch (e) {
+			formError = e instanceof Error ? e.message : 'Error al crear recurso';
+			toast.error(formError);
+		} finally {
+			resourceLoading = false;
+		}
+	}
+
+	async function handleDeleteResource(resName: string) {
+		if (resName === '*') {
+			toast.warning('No puedes eliminar el comodín (*).');
+			return;
+		}
+		if (!confirm(`¿Eliminar el recurso "${resName}"? Esto eliminará todas las políticas asociadas en Casbin.`)) return;
+		try {
+			await deletePermissionResource(resName);
+			toast.success(`Recurso "${resName}" eliminado`);
+			const metadata = await fetchPermissionsMetadata();
+			resources = metadata.resources;
+			await load(page);
+		} catch (e) {
+			toast.error(e instanceof Error ? e.message : 'Error al eliminar recurso');
+		}
+	}
+
 	async function handleCreate(e: Event) {
 		e.preventDefault();
 		formError = null;
@@ -101,10 +155,12 @@ function setPageSize(e: Event) {
 				act: formData.act
 			};
 			await createPolicy(data);
+			toast.success('Política creada con éxito');
 			closeModal();
 			await load(page);
 		} catch (e) {
 			formError = e instanceof Error ? e.message : 'Error al crear política';
+			toast.error(formError);
 		} finally {
 			formLoading = false;
 		}
@@ -114,9 +170,10 @@ function setPageSize(e: Event) {
 		if (!confirm(`¿Eliminar la política ${p.sub} -> ${p.obj} / ${p.act}?`)) return;
 		try {
 			await deletePolicy(p.sub, p.obj, p.act);
+			toast.success('Política eliminada');
 			await load(page);
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Error al eliminar';
+			toast.error(e instanceof Error ? e.message : 'Error al eliminar');
 		}
 	}
 
@@ -129,21 +186,28 @@ function setPageSize(e: Event) {
 	});
 </script>
 
-<div class="admin-page">
-	<h1 class="admin-title">Permisos</h1>
-	<p class="admin-desc">
-		Define qué acción puede realizar cada rol sobre cada recurso. Solo se pueden asignar permisos a roles existentes.
-	</p>
-
-	<div class="admin-toolbar">
-		{#if hasPermission($authStore.user, 'permissions', 'create')}
-			<button type="button" class="admin-btn" onclick={openCreate} disabled={roles.length === 0}>
-				Nueva política
+{#if hasAccess}
+<div class="admin-page fade-in">
+	<div class="admin-header-container">
+		<div>
+			<h1 class="admin-title">Permisos</h1>
+			<p class="admin-desc">
+				Define qué acción puede realizar cada rol sobre cada recurso. Solo se pueden asignar permisos a roles existentes.
+			</p>
+		</div>
+		<div class="admin-toolbar flex-col sm:flex-row w-full sm:w-auto">
+			{#if hasPermission($authStore.user, 'permissions', 'create')}
+				<button type="button" class="admin-btn w-full sm:w-auto" onclick={openCreate} disabled={roles.length === 0}>
+					Nueva Política
+				</button>
+			{/if}
+			<button type="button" class="admin-btn-secondary w-full sm:w-auto mt-2 sm:mt-0" onclick={openResourceModal}>
+				Gestionar Recursos
 			</button>
-		{/if}
-		{#if roles.length === 0}
-			<span class="admin-hint">Crea al menos un rol antes de agregar políticas.</span>
-		{/if}
+			{#if roles.length === 0}
+				<span class="admin-hint text-center sm:text-left mt-2 sm:mt-0 w-full sm:w-auto">Crea al menos un rol antes de agregar políticas.</span>
+			{/if}
+		</div>
 	</div>
 
 	{#if loading}
@@ -168,11 +232,17 @@ function setPageSize(e: Event) {
 							<td>{p.obj}</td>
 							<td>{p.act}</td>
 							<td>
-								{#if hasPermission($authStore.user, 'permissions', 'delete')}
-									<button type="button" class="admin-btn-danger" onclick={() => handleDelete(p)}>
-										Eliminar
-									</button>
-								{/if}
+								<div class="flex items-center gap-1">
+									{#if hasPermission($authStore.user, 'permissions', 'delete')}
+										<button
+											class="action-icon-btn danger"
+											onclick={() => handleDelete(p)}
+											title="Eliminar"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+										</button>
+									{/if}
+								</div>
 							</td>
 						</tr>
 					{/each}
@@ -249,4 +319,51 @@ function setPageSize(e: Event) {
 			</form>
 		</div>
 	</div>
+{/if}
+
+{#if showResourceModal}
+	<div class="admin-modal-overlay" role="dialog" aria-modal="true">
+		<div class="admin-modal max-w-lg">
+			<h2 class="admin-modal-title">Gestión de Recursos</h2>
+			<p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Administra los recursos sobre los que se aplican los permisos.</p>
+			
+			<div class="mb-6 max-h-60 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-lg p-2">
+				{#if resources.length === 0}
+					<p class="text-sm text-slate-500 p-2">No hay recursos disponibles.</p>
+				{:else}
+					<ul class="space-y-1">
+						{#each resources as res}
+							<li class="flex items-center justify-between p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded">
+								<span class="font-medium text-slate-700 dark:text-slate-200">{res}</span>
+								{#if res !== '*'}
+									<button type="button" class="text-red-500 hover:text-red-700 text-sm font-bold px-2 py-1" onclick={() => handleDeleteResource(res)}>
+										Eliminar
+									</button>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
+
+			<form onsubmit={handleCreateResource}>
+				{#if formError}
+					<div class="admin-error mb-4">{formError}</div>
+				{/if}
+				<div class="admin-field">
+					<label for="new-resource">Agregar nuevo recurso</label>
+					<div class="flex gap-2">
+						<input id="new-resource" type="text" bind:value={newResourceName} placeholder="Ej. reportes" class="flex-1" required />
+						<button type="submit" class="admin-btn whitespace-nowrap" disabled={resourceLoading}>
+							{resourceLoading ? '...' : 'Añadir'}
+						</button>
+					</div>
+				</div>
+				<div class="admin-modal-actions mt-6">
+					<button type="button" class="admin-btn-secondary w-full" onclick={() => showResourceModal = false}>Cerrar</button>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}
 {/if}

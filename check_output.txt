@@ -1,0 +1,283 @@
+Loading svelte-check in workspace: d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend
+Getting Svelte diagnostics...
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\lib\components\auth\LoginForm.svelte[39m:105:9
+[33mWarn[39m: '#' is not a valid href attribute
+https://svelte.dev/e/a11y_invalid_attribute (svelte)
+[36m				<div class="form-actions">
+					<a [35mhref="#"[36m class="forgot-link">┬┐Olvidaste tu contrase├▒a?</a>
+				</div>[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\lib\components\layout\PublicNavbar.svelte[39m:60:48
+[31mError[39m: Property 'first_name' does not exist on type 'User'. (ts)
+[36m						<span class="avatar-icon">­ƒæñ</span>
+						<span class="username">{$authStore.user?.[35mfirst_name[36m || 'Perfil'}</span>
+						<span class="chevron">Ôû╝</span>[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\lib\components\layout\PublicNavbar.svelte[39m:67:35
+[31mError[39m: Property 'first_name' does not exist on type 'User'. (ts)
+[36m							<div class="dropdown-header">
+								<strong>{$authStore.user?.[35mfirst_name[36m} {$authStore.user?.last_name}</strong>
+								<small>{$authStore.user?.email}</small>[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\lib\components\layout\PublicNavbar.svelte[39m:67:65
+[31mError[39m: Property 'last_name' does not exist on type 'User'. (ts)
+[36m							<div class="dropdown-header">
+								<strong>{$authStore.user?.first_name} {$authStore.user?.[35mlast_name[36m}</strong>
+								<small>{$authStore.user?.email}</small>[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\+layout.svelte[39m:27:2
+[33mWarn[39m: Unknown at rule @reference (css)
+[36m<style>
+	[35m@reference[36m './layout.css';
+	.layout-root {[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\+layout.svelte[39m:29:3
+[33mWarn[39m: Unknown at rule @apply (css)
+[36m	.layout-root {
+		[35m@apply[36m relative min-h-svh bg-slate-50 dark:bg-[#0B0E14];
+	}[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\+page.svelte[39m:104:2
+[33mWarn[39m: Unused CSS selector "h1"
+https://svelte.dev/e/css_unused_selector (svelte)
+[36m
+	[35mh1[36m, h2, h3, h4, .brand-accent {
+		font-family: 'Outfit', sans-serif;[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\+page.svelte[39m:104:6
+[33mWarn[39m: Unused CSS selector "h2"
+https://svelte.dev/e/css_unused_selector (svelte)
+[36m
+	h1, [35mh2[36m, h3, h4, .brand-accent {
+		font-family: 'Outfit', sans-serif;[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\+page.svelte[39m:104:10
+[33mWarn[39m: Unused CSS selector "h3"
+https://svelte.dev/e/css_unused_selector (svelte)
+[36m
+	h1, h2, [35mh3[36m, h4, .brand-accent {
+		font-family: 'Outfit', sans-serif;[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\+page.svelte[39m:104:14
+[33mWarn[39m: Unused CSS selector "h4"
+https://svelte.dev/e/css_unused_selector (svelte)
+[36m
+	h1, h2, h3, [35mh4[36m, .brand-accent {
+		font-family: 'Outfit', sans-serif;[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\+page.svelte[39m:104:18
+[33mWarn[39m: Unused CSS selector ".brand-accent"
+https://svelte.dev/e/css_unused_selector (svelte)
+[36m
+	h1, h2, h3, h4, [35m.brand-accent[36m {
+		font-family: 'Outfit', sans-serif;[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\+page.svelte[39m:108:2
+[33mWarn[39m: Unused CSS selector ".container"
+https://svelte.dev/e/css_unused_selector (svelte)
+[36m
+	[35m.container[36m {
+		max-width: 1400px;[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\+page.svelte[39m:12:10
+[31mError[39m: Argument of type '() => Promise<() => void>' is not assignable to parameter of type '() => (() => any) | Promise<never>'.
+  Type 'Promise<() => void>' is not assignable to type '(() => any) | Promise<never>'.
+    Type 'Promise<() => void>' is not assignable to type 'Promise<never>'.
+      Type '() => void' is not assignable to type 'never'. (ts)
+[36m	
+	onMount([35masync () => {[36m
+		const handleScroll = () => {[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\(protected)\+layout.svelte[39m:40:2
+[33mWarn[39m: Unknown at rule @reference (css)
+[36m<style>
+	[35m@reference[36m '../layout.css';
+	.admin-wrapper {[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\(protected)\+layout.svelte[39m:42:3
+[33mWarn[39m: Unknown at rule @apply (css)
+[36m	.admin-wrapper {
+		[35m@apply[36m fixed inset-0 flex flex-col bg-slate-50 dark:bg-[#0B0E14];
+	}[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\(protected)\+layout.svelte[39m:46:3
+[33mWarn[39m: Unknown at rule @apply (css)
+[36m	.protected-layout {
+		[35m@apply[36m flex flex-1 w-full relative z-10 overflow-hidden;
+		margin-top: 4.5rem;[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\(protected)\+layout.svelte[39m:52:3
+[33mWarn[39m: Unknown at rule @apply (css)
+[36m	.protected-main {
+		[35m@apply[36m flex-1 overflow-y-auto p-4 md:p-8 h-full;
+	}[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\(protected)\+layout.svelte[39m:56:3
+[33mWarn[39m: Unknown at rule @apply (css)
+[36m	.protected-loading {
+		[35m@apply[36m flex min-h-svh items-center justify-center text-[#D4AF37] font-['Outfit'] tracking-widest text-xl bg-[#0B0E14];
+	}[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\(protected)\admin\habitaciones\+page.svelte[39m:162:7
+[33mWarn[39m: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+[36m					<div class="admin-field">
+						[35m<label>N├║mero</label>[36m
+						<input type="text" bind:value={currentRoom.number} required />[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\(protected)\admin\habitaciones\+page.svelte[39m:166:7
+[33mWarn[39m: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+[36m					<div class="admin-field">
+						[35m<label>Tipo</label>[36m
+						<select bind:value={currentRoom.type}>[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\(protected)\admin\habitaciones\+page.svelte[39m:174:7
+[33mWarn[39m: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+[36m					<div class="admin-field">
+						[35m<label>Capacidad</label>[36m
+						<input type="number" bind:value={currentRoom.capacity} required min="1" />[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\(protected)\admin\habitaciones\+page.svelte[39m:178:7
+[33mWarn[39m: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+[36m					<div class="admin-field">
+						[35m<label>Precio Base</label>[36m
+						<input type="number" step="0.01" bind:value={currentRoom.base_price} required min="1" />[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\(protected)\admin\habitaciones\+page.svelte[39m:183:6
+[33mWarn[39m: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+[36m				<div class="admin-field mt-2">
+					[35m<label>Descripci├│n</label>[36m
+					<textarea bind:value={currentRoom.description} rows="3"></textarea>[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\rooms\+layout.svelte[39m:48:2
+[33mWarn[39m: Unused CSS selector ".standard-navbar"
+https://svelte.dev/e/css_unused_selector (svelte)
+[36m
+	[35m.standard-navbar[36m {
+		position: fixed;[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\rooms\+layout.svelte[39m:58:2
+[33mWarn[39m: Unused CSS selector ".standard-navbar.scrolled"
+https://svelte.dev/e/css_unused_selector (svelte)
+[36m	}
+	[35m.standard-navbar.scrolled[36m {
+		border-bottom: 1px solid var(--border-light);[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\rooms\+layout.svelte[39m:62:2
+[33mWarn[39m: Unused CSS selector ".nav-container"
+https://svelte.dev/e/css_unused_selector (svelte)
+[36m	}
+	[35m.nav-container[36m {
+		max-width: 1400px;[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\rooms\+layout.svelte[39m:70:2
+[33mWarn[39m: Unused CSS selector ".nav-brand"
+https://svelte.dev/e/css_unused_selector (svelte)
+[36m	}
+	[35m.nav-brand[36m {
+		font-family: 'Outfit', sans-serif;[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\rooms\+layout.svelte[39m:79:2
+[33mWarn[39m: Unused CSS selector ".brand-accent"
+https://svelte.dev/e/css_unused_selector (svelte)
+[36m	}
+	[35m.brand-accent[36m {
+		font-weight: 800;[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\rooms\+layout.svelte[39m:83:2
+[33mWarn[39m: Unused CSS selector ".nav-links"
+https://svelte.dev/e/css_unused_selector (svelte)
+[36m	}
+	[35m.nav-links[36m {
+		display: flex;[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\rooms\+layout.svelte[39m:88:2
+[33mWarn[39m: Unused CSS selector ".nav-link"
+https://svelte.dev/e/css_unused_selector (svelte)
+[36m	}
+	[35m.nav-link[36m {
+		color: var(--text-muted);[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\rooms\+layout.svelte[39m:97:2
+[33mWarn[39m: Unused CSS selector ".nav-link:hover"
+https://svelte.dev/e/css_unused_selector (svelte)
+[36m	}
+	[35m.nav-link:hover[36m { color: var(--text-main); }[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\rooms\+layout.svelte[39m:99:2
+[33mWarn[39m: Unused CSS selector ".btn-gold"
+https://svelte.dev/e/css_unused_selector (svelte)
+[36m
+	[35m.btn-gold[36m {
+		background: linear-gradient(135deg, #D4AF37 0%, #AA8222 100%);[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\rooms\+layout.svelte[39m:111:2
+[33mWarn[39m: Unused CSS selector ".btn-gold:hover"
+https://svelte.dev/e/css_unused_selector (svelte)
+[36m	}
+	[35m.btn-gold:hover[36m {
+		transform: translateY(-2px);[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\rooms\+layout.svelte[39m:116:2
+[33mWarn[39m: Unused CSS selector ".btn-outline"
+https://svelte.dev/e/css_unused_selector (svelte)
+[36m
+	[35m.btn-outline[36m {
+		border: 1px solid var(--border-light);[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\rooms\+layout.svelte[39m:127:2
+[33mWarn[39m: Unused CSS selector ".btn-outline:hover"
+https://svelte.dev/e/css_unused_selector (svelte)
+[36m	}
+	[35m.btn-outline:hover[36m {
+		background: var(--text-main);[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\rooms\+page.svelte[39m:86:5
+[33mWarn[39m: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+[36m			<div class="input-block">
+				[35m<label>Check-In</label>[36m
+				<input type="date" bind:value={checkIn} required />[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\rooms\+page.svelte[39m:91:5
+[33mWarn[39m: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+[36m			<div class="input-block">
+				[35m<label>Check-Out</label>[36m
+				<input type="date" bind:value={checkOut} required />[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\rooms\+page.svelte[39m:96:5
+[33mWarn[39m: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+[36m			<div class="input-block">
+				[35m<label>Hu├®spedes</label>[36m
+				<input type="number" bind:value={guests} min="1" required />[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\rooms\+page.svelte[39m:101:5
+[33mWarn[39m: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+[36m			<div class="input-block">
+				[35m<label>Tipo (Opcional)</label>[36m
+				<select bind:value={roomType}>[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\rooms\+page.svelte[39m:294:139
+[33mWarn[39m: Also define the standard property 'line-clamp' for compatibility (css)
+[36m	.card-content h3 { font-family: 'Outfit'; font-size: 1.5rem; margin: 0 0 1rem; color: var(--text-main); }
+	.description { color: var(--text-muted); line-height: 1.6; margin-bottom: 1.5rem; height: 3.2em; overflow: hidden; display: -webkit-box; [35m-webkit-line-clamp[36m: 2; -webkit-box-orient: vertical; }
+	.meta { display: flex; gap: 1rem; font-size: 0.85rem; font-weight: 600; color: #D4AF37; margin-bottom: 1.5rem; }[39m
+
+d:\josec\Documents\Nueva carpeta (2)\1033-APLICACI├ôN DE FRAMEWORKS EMPRESARIALES SECCI├ôN A\ProyectoAFE\proyecto-frontend\[32msrc\routes\rooms\[id]\+page.svelte[39m:7:24
+[31mError[39m: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'. (ts)
+[36m	
+	let roomId = parseInt([35m$page.params.id[36m);
+	let room = $state<RoomRead | null>(null);[39m
+
+====================================
+[31msvelte-check found 5 errors and 36 warnings in 9 files
+[39m

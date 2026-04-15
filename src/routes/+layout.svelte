@@ -4,7 +4,7 @@
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import { effectiveTheme } from '$lib/stores/theme.store';
-	import ThemeToggle from '$lib/components/layout/ThemeToggle.svelte';
+	import ToastContainer from '$lib/components/ui/ToastContainer.svelte';
 
 	let { children } = $props();
 
@@ -21,18 +21,13 @@
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 <div class="layout-root">
-	<div class="theme-toggle-wrapper">
-		<ThemeToggle />
-	</div>
 	{@render children()}
+	<ToastContainer />
 </div>
 
 <style>
 	@reference './layout.css';
 	.layout-root {
-		@apply relative min-h-svh bg-white dark:bg-slate-900;
-	}
-	.theme-toggle-wrapper {
-		@apply fixed right-4 top-4 z-50;
+		@apply relative min-h-svh bg-slate-50 dark:bg-[#0B0E14];
 	}
 </style>

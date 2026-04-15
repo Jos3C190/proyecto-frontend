@@ -1,19 +1,31 @@
 @reference '../../layout.css';
 
+@reference '../../layout.css';
+
 .admin-page {
-	@apply w-full max-w-6xl space-y-3;
+	@apply w-full max-w-7xl mx-auto space-y-4 pt-2 pb-12 font-['Inter'] animate-[fadeIn_0.5s_ease-out];
 }
 
 .admin-title {
-	@apply text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-50;
+	@apply font-['Outfit'] text-4xl font-light tracking-tight text-slate-900 dark:text-white mb-2;
 }
 
 .admin-desc {
-	@apply mt-2 text-sm text-slate-600 dark:text-slate-300;
+	@apply text-base text-slate-500 dark:text-slate-400 mb-6;
+}
+
+.admin-header-container {
+	@apply flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-6;
+}
+.admin-header-container .admin-desc {
+	@apply mb-0;
 }
 
 .admin-toolbar {
-	@apply mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 px-4 py-3 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-gradient-to-r dark:from-slate-900 dark:via-slate-800 dark:to-slate-900;
+	@apply flex flex-wrap items-center gap-4 rounded-xl border border-slate-200/50 bg-white/50 px-6 py-4 shadow-sm backdrop-blur-md dark:border-slate-700/50 dark:bg-slate-900/50;
+}
+.admin-toolbar select {
+	@apply rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 transition-colors focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:focus:border-[#D4AF37];
 }
 
 .admin-hint {
@@ -21,108 +33,122 @@
 }
 
 .admin-btn {
-	@apply rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-indigo-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-indigo-500 dark:hover:bg-indigo-400 dark:focus:ring-offset-slate-900;
+	@apply inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#AA8222] px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-[#0B0E14] shadow-lg shadow-[#D4AF37]/20 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#D4AF37]/30 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:ring-offset-2 dark:focus:ring-offset-slate-900 cursor-pointer;
 }
 
 .admin-btn-secondary {
-	@apply rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700;
+	@apply inline-flex items-center justify-center gap-2 rounded-lg border border-[#D4AF37] bg-transparent px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-slate-800 transition-all hover:bg-[#D4AF37]/10 dark:text-slate-200 dark:hover:bg-[#D4AF37]/20 cursor-pointer;
 }
 
 .admin-btn-secondary:disabled {
-	@apply cursor-not-allowed opacity-50 hover:bg-white dark:hover:bg-slate-800;
+	@apply cursor-not-allowed opacity-50 hover:bg-transparent dark:hover:bg-transparent;
 }
 
 .admin-btn-danger {
-	@apply rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-red-700 hover:shadow-md;
+	@apply inline-flex items-center justify-center gap-2 rounded-lg bg-red-500/10 px-5 py-2 text-sm font-semibold uppercase tracking-wider text-red-600 transition-all hover:bg-red-500/20 dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30 cursor-pointer;
 }
 
 .admin-btn-danger:disabled {
-	@apply cursor-not-allowed opacity-50 hover:translate-y-0 hover:bg-red-600 hover:shadow-sm;
+	@apply cursor-not-allowed opacity-50 hover:translate-y-0 hover:bg-red-500/10 hover:shadow-none;
 }
 
 .admin-loading {
-	@apply mt-4 text-slate-500 dark:text-slate-400;
+	@apply mt-6 flex justify-center py-12 text-slate-500 dark:text-slate-400;
 }
 
 .admin-error {
-	@apply mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300;
+	@apply mt-4 rounded-lg border-l-4 border-red-500 bg-red-50/80 px-4 py-3 text-sm font-medium text-red-800 dark:bg-red-900/20 dark:text-red-300 backdrop-blur-sm;
 }
 
 .admin-section {
-	@apply mt-6 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/60;
+	@apply mt-6 rounded-2xl border border-slate-200/50 bg-white/70 p-6 shadow-xl shadow-slate-200/20 backdrop-blur-md dark:border-slate-800/50 dark:bg-[#0B0E14]/70 dark:shadow-none;
 }
 
 .admin-section-title {
-	@apply text-lg font-medium text-slate-800 dark:text-slate-100;
+	@apply mb-4 font-['Outfit'] text-xl font-medium text-slate-800 dark:text-slate-100;
 }
 
 .admin-table {
-	@apply mt-3 min-w-full border-collapse text-sm;
+	@apply min-w-full border-collapse text-sm;
 }
 
 .admin-table-wrapper {
-	@apply -mx-4 mt-3 overflow-x-auto px-4;
+	@apply -mx-6 mt-2 overflow-x-auto px-6;
 }
 
 .admin-table th {
-	@apply border-b border-slate-200 bg-slate-50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200;
+	@apply border-b border-slate-200/80 bg-slate-50/50 px-2 py-3 text-left text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:border-slate-700/80 dark:bg-slate-800/50 dark:text-slate-400;
 }
 
 .admin-table td {
-	@apply border-b border-slate-100 px-3 py-2 text-sm text-slate-800 dark:border-slate-700 dark:text-slate-100;
+	@apply border-b border-slate-100/50 px-2 py-3 text-sm font-medium text-slate-700 dark:border-slate-700/50 dark:text-slate-300;
 }
 
 .admin-table tr:hover td {
 	@apply bg-slate-50/80 dark:bg-slate-800/80;
 }
 
+.admin-table tr:last-child td {
+	@apply border-0;
+}
+
 .admin-badge {
-	@apply inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold uppercase text-indigo-700 ring-1 ring-inset ring-indigo-100 dark:bg-indigo-900/40 dark:text-indigo-200 dark:ring-indigo-700/70;
+	@apply inline-flex items-center rounded-full bg-[#D4AF37]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#B8962A] border border-[#D4AF37]/20 dark:bg-[#D4AF37]/20 dark:text-[#D4AF37] dark:border-[#D4AF37]/30;
 }
 
 .admin-badge-inactive {
-	@apply rounded bg-slate-200 px-1.5 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-600 dark:text-slate-300;
+	@apply inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-500 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700;
+}
+.admin-badge-system {
+	@apply inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-blue-600 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50;
+}
+.action-icon-btn {
+	@apply inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 text-slate-600 transition-all hover:bg-[#D4AF37] hover:text-white dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-[#D4AF37] dark:hover:text-white cursor-pointer;
+}
+.action-icon-btn.danger {
+	@apply hover:bg-red-500;
 }
 
 .admin-modal-overlay {
-	@apply fixed inset-0 z-50 flex items-center justify-center bg-black/50;
+	@apply fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 md:p-8 animate-[fadeIn_0.2s_ease-out];
 }
 
 .admin-modal {
-	@apply max-h-[90vh] w-full max-w-lg overflow-auto rounded-lg bg-white p-6 shadow-xl dark:bg-slate-800;
+	@apply max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200/50 bg-white p-6 md:p-10 shadow-2xl dark:border-slate-700/50 dark:bg-slate-900;
 }
 
 .admin-modal-title {
-	@apply mb-4 text-lg font-semibold text-slate-800 dark:text-slate-100;
+	@apply mb-6 font-['Outfit'] text-2xl font-light text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-4;
 }
 
 .admin-field {
-	@apply mb-4;
+	@apply mb-5;
 }
 
 .admin-field label {
-	@apply mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300;
+	@apply mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400;
 }
 
 .admin-field input,
-.admin-field select {
-	@apply w-full rounded border border-slate-300 px-3 py-2 text-slate-800 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200;
+.admin-field select,
+.admin-field textarea {
+	@apply w-full rounded-lg border border-slate-300 bg-slate-50/50 px-4 py-3 text-slate-800 transition-colors focus:border-[#D4AF37] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#D4AF37]/10 dark:border-slate-600 dark:bg-slate-800/50 dark:text-slate-200 dark:focus:border-[#D4AF37] dark:focus:bg-slate-800;
 }
 
 .admin-field-error {
-	@apply mt-1 text-sm text-red-600 dark:text-red-400;
+	@apply mt-1.5 text-xs text-red-500 dark:text-red-400;
 }
 
 .admin-modal-actions {
-	@apply mt-6 flex justify-end gap-2;
+	@apply mt-8 flex justify-end gap-3 border-t border-slate-100 pt-5 dark:border-slate-800;
 }
 
 .admin-pagination {
-	@apply mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3 dark:border-slate-600;
+	@apply mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-4 dark:border-slate-800;
 }
 
 .admin-pagination-left {
-	@apply flex flex-wrap items-center gap-3 text-sm text-slate-600 dark:text-slate-300;
+	@apply flex flex-wrap items-center gap-4 text-sm font-medium text-slate-500 dark:text-slate-400;
 }
 
 .admin-pagination-right {
@@ -130,7 +156,7 @@
 }
 
 .admin-pagination-info {
-	@apply rounded-md bg-slate-100 px-2 py-1 text-sm font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200;
+	@apply inline-flex items-center justify-center rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-slate-600 dark:bg-slate-800 dark:text-slate-300;
 }
 
 .admin-page-size {
@@ -138,5 +164,14 @@
 }
 
 .admin-page-size select {
-	@apply rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200;
+	@apply rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200;
+}
+
+.fade-in {
+	animation: fadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fadeIn {
+	from { opacity: 0; transform: translateY(5px); }
+	to { opacity: 1; transform: translateY(0); }
 }
