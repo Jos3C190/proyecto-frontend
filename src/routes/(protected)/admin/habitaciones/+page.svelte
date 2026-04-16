@@ -6,7 +6,6 @@
 	import { authStore } from '$lib/stores/auth.store';
 	import { hasPermission } from '$lib/types';
 	import { toast } from '$lib/stores/toast.svelte';
-	import RoomDetailsModal from '$lib/components/admin/RoomDetailsModal.svelte';
 	import RoomTypesModal from '$lib/components/admin/RoomTypesModal.svelte';
 	import ImageLightboxModal from '$lib/components/admin/ImageLightboxModal.svelte';
 	import '../adminPage.css';
@@ -18,7 +17,6 @@
 	
 	let hasAccess = $derived(hasPermission($authStore.user, 'rooms', 'read'));
 
-	let showDetails = $state(false);
 	let showImageModal = $state(false);
 	let showRoomTypesModal = $state(false);
 	let currentImageIndex = $state(0);
@@ -125,8 +123,7 @@
 	}
 
 	function openDetails(r: RoomRead) {
-		viewingRoom = r;
-		showDetails = true;
+		goto(`/admin/habitaciones/${r.id}/detalle`);
 	}
 
 	async function handleDelete(id: number) {
@@ -280,12 +277,6 @@
 		{/if}
 	</section>
 </div>
-
-<RoomDetailsModal 
-	bind:show={showDetails} 
-	room={viewingRoom} 
-	onOpenImage={openImage} 
-/>
 
 <RoomTypesModal 
 	bind:show={showRoomTypesModal} 

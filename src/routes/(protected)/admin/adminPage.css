@@ -133,6 +133,7 @@
 .admin-field select,
 .admin-field textarea {
 	@apply w-full rounded-lg border border-slate-300 bg-slate-50/50 px-4 py-3 text-slate-800 transition-colors focus:border-[#D4AF37] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#D4AF37]/10 dark:border-slate-600 dark:bg-slate-800/50 dark:text-slate-200 dark:focus:border-[#D4AF37] dark:focus:bg-slate-800;
+	color-scheme: dark;
 }
 
 .admin-field-error {
@@ -174,4 +175,14 @@
 @keyframes fadeIn {
 	from { opacity: 0; transform: translateY(5px); }
 	to { opacity: 1; transform: translateY(0); }
+}
+
+/* Forzar iconos de calendario claros en modo oscuro */
+.dark input[type="date"]::-webkit-calendar-picker-indicator {
+	filter: invert(1) brightness(1.8) !important;
+	cursor: pointer;
+}
+
+.dark {
+	color-scheme: dark !important;
 }
