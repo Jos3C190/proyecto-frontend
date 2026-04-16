@@ -6,7 +6,6 @@
 	import { authStore } from '$lib/stores/auth.store';
 	import { hasPermission } from '$lib/types';
 	import { toast } from '$lib/stores/toast.svelte';
-	import RoomFormModal from '$lib/components/admin/RoomFormModal.svelte';
 	import RoomDetailsModal from '$lib/components/admin/RoomDetailsModal.svelte';
 	import RoomTypesModal from '$lib/components/admin/RoomTypesModal.svelte';
 	import ImageLightboxModal from '$lib/components/admin/ImageLightboxModal.svelte';
@@ -19,14 +18,11 @@
 	
 	let hasAccess = $derived(hasPermission($authStore.user, 'rooms', 'read'));
 
-	let showModal = $state(false);
 	let showDetails = $state(false);
 	let showImageModal = $state(false);
 	let showRoomTypesModal = $state(false);
 	let currentImageIndex = $state(0);
 	let viewingRoom = $state<RoomRead | null>(null);
-	let modalMode = $state<'create' | 'edit'>('create');
-	let currentRoom = $state<any>({});
 
 	// Filters
 	let searchQuery = $state('');
@@ -121,28 +117,11 @@
 	});
 
 	function openCreate() {
-		modalMode = 'create';
-		currentRoom = {
-			number: '',
-			type: roomTypes.length > 0 ? roomTypes[0].name : '',
-			capacity: 1,
-			base_price: 50.0,
-			description: '',
-			is_active: true,
-			season_prices: [],
-			images: []
-		};
-		showModal = true;
+		goto('/admin/habitaciones/nueva');
 	}
 
 	function openEdit(r: RoomRead) {
-		modalMode = 'edit';
-		currentRoom = { 
-			...r, 
-			season_prices: r.season_prices ? [...r.season_prices.map(s => ({...s}))] : [], 
-			images: r.images ? r.images.map(img => img.url) : [] 
-		};
-		showModal = true;
+		goto(`/admin/habitaciones/${r.id}`);
 	}
 
 	function openDetails(r: RoomRead) {
@@ -167,7 +146,12 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Admin - Habitaciones</title>
+</svelte:head>
+
 {#if hasAccess}
+
 <div class="admin-page fade-in">
 	<div class="admin-header-container">
 		<div>
@@ -296,15 +280,6 @@
 		{/if}
 	</section>
 </div>
-
-<RoomFormModal 
-	bind:show={showModal} 
-	mode={modalMode} 
-	room={currentRoom} 
-	{roomTypes} 
-	onSuccess={loadRooms} 
-	onOpenRoomTypes={() => showRoomTypesModal = true} 
-/>
 
 <RoomDetailsModal 
 	bind:show={showDetails} 

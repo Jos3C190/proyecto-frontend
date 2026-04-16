@@ -169,7 +169,12 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Admin - Reservaciones</title>
+</svelte:head>
+
 {#if hasAccess}
+
 <div class="admin-page fade-in">
 	<div class="admin-header-container">
 		<div>

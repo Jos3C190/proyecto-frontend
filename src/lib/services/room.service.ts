@@ -1,5 +1,5 @@
 import { API_BASE } from '$lib/config/api';
-import type { RoomRead, RoomCreate, RoomUpdate, RoomAuditLog, RoomTypeRead, RoomTypeCreate, RoomSearchResponse } from '$lib/types/room';
+import type { RoomRead, RoomCreate, RoomUpdate, RoomAuditLog, RoomTypeRead, RoomTypeCreate, RoomSearchResponse, RoomPriceHistoryResponse } from '$lib/types/room';
 import { getStoredAuth } from '$lib/services/auth.service';
 
 export async function searchRooms(
@@ -90,6 +90,25 @@ export async function getRoom(id: number): Promise<RoomRead> {
 	if (!res.ok) {
 		const err = await res.json().catch(() => ({}));
 		throw new Error(err.detail ?? 'Error al obtener detalles de la habitación');
+	}
+
+	return await res.json();
+}
+
+export async function getRoomPriceHistory(id: number): Promise<RoomPriceHistoryResponse> {
+	const stored = getStoredAuth();
+	const headers: Record<string, string> = {};
+	if (stored) {
+		headers['Authorization'] = `Bearer ${stored.token}`;
+	}
+
+	const res = await fetch(`${API_BASE}/rooms/${id}/price-history`, {
+		headers
+	});
+
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({}));
+		throw new Error(err.detail ?? 'Error al obtener historial de precios');
 	}
 
 	return await res.json();

@@ -186,7 +186,12 @@ function setPageSize(e: Event) {
 	});
 </script>
 
+<svelte:head>
+	<title>Admin - Permisos</title>
+</svelte:head>
+
 {#if hasAccess}
+
 <div class="admin-page fade-in">
 	<div class="admin-header-container">
 		<div>

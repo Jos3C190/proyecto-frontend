@@ -1,11 +1,68 @@
 <script lang="ts">
-	import type { RoomRead } from '$lib/types/room';
+	import type { RoomRead, SeasonPriceRead, RoomPriceHistoryResponse } from '$lib/types/room';
+	import { getRoomPriceHistory } from '$lib/services/room.service';
 
 	let { show = $bindable(), room, onOpenImage } = $props<{
 		show: boolean;
 		room: RoomRead | null;
 		onOpenImage: (index: number) => void;
 	}>();
+
+	let showHistory = $state(false);
+	let priceHistory: RoomPriceHistoryResponse | null = $state(null);
+	let loadingHistory = $state(false);
+
+	let targetDate = $state('');
+
+	let computedDailyPrice = $derived.by(() => {
+		if (!targetDate || !priceHistory || !room) return null;
+		
+		const targetStr = targetDate;
+		const targetD = new Date(targetStr + 'T23:59:59');
+
+		const activeSeasons = (priceHistory.season_prices || []).filter(sp => 
+			sp.start_date <= targetStr && sp.end_date >= targetStr
+			&& new Date(sp.created_at || '') <= targetD
+		).sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
+		
+		const activeSp = activeSeasons.length > 0 ? activeSeasons[0] : null;
+
+		const activeBasePrices = (priceHistory.base_prices || []).filter(bp => 
+			new Date(bp.created_at || '') <= targetD
+		).sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
+		
+		const activeBp = activeBasePrices.length > 0 ? Number(activeBasePrices[0].base_price) : Number(room.base_price);
+
+		if (activeSp) {
+			return (activeBp * Number(activeSp.price_multiplier)).toFixed(2);
+		}
+
+		return activeBp.toFixed(2);
+	});
+
+	$effect(() => {
+	    // reset state when room changes
+	    if (show && room) {
+	        showHistory = false;
+	        priceHistory = null;
+			targetDate = '';
+	    }
+	});
+
+	async function toggleHistory() {
+		if (!room) return;
+		showHistory = !showHistory;
+		if (showHistory && !priceHistory) {
+			loadingHistory = true;
+			try {
+				priceHistory = await getRoomPriceHistory(room.id);
+			} catch (e) {
+				console.error(e);
+			} finally {
+				loadingHistory = false;
+			}
+		}
+	}
 
 	function close() {
 		show = false;
@@ -123,6 +180,104 @@
 							Esta habitación no cuenta con precios dinámicos por temporada en el sistema. Siempre costará la Tarifa Base anunciada.
 						</div>
 					{/if}
+
+					<div class="mt-4 border-t border-emerald-200 dark:border-emerald-800/60 pt-3">
+						<button type="button" class="text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 font-semibold uppercase tracking-wider w-full text-center flex justify-center items-center gap-1 transition-colors" onclick={toggleHistory}>
+							{showHistory ? 'Ocultar Historial' : 'Ver Historial de Auditoría (Precios Anteriores)'}
+						</button>
+						
+						{#if showHistory}
+							<div class="mt-3 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80 p-2 rounded border border-slate-200 dark:border-slate-700">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">¿Precio al día:</span>
+                                    <input type="date" bind:value={targetDate} class="text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-2 py-1 focus:ring-1 focus:outline-none focus:ring-emerald-500" />
+                                    <span class="text-[11px] font-semibold text-slate-500">?</span>
+                                </div>
+                                
+                                {#if computedDailyPrice !== null}
+                                    <div class="flex items-center gap-2 bg-emerald-100 dark:bg-emerald-900/40 px-3 py-1 mt-0 rounded-full shrink-0">
+                                        <span class="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold uppercase tracking-wider hidden sm:inline">Costo:</span>
+                                        <span class="text-xs font-black text-emerald-800 dark:text-emerald-300">${computedDailyPrice}</span>
+                                    </div>
+                                {/if}
+                            </div>
+
+							<div class="mt-3 space-y-2 max-h-[300px] overflow-y-auto pr-2" style="scrollbar-width: thin;">
+								{#if loadingHistory}
+									<p class="text-center text-xs text-slate-500 py-2">Cargando bitácora de precios...</p>
+								{:else if !priceHistory || (priceHistory.season_prices.length === 0 && priceHistory.base_prices.length === 0)}
+									<p class="text-center text-xs text-slate-500 py-2">No hay registros históricos almacenados.</p>
+								{:else}
+									{@const combinedHistory = [
+										...(priceHistory.season_prices || []).map(sp => ({ type: 'season', date: new Date(sp.created_at || 0), data: sp })),
+										...(priceHistory.base_prices || []).map(bp => ({ type: 'base', date: new Date(bp.created_at || 0), data: bp }))
+									].sort((a, b) => b.date.getTime() - a.date.getTime())}
+
+									{@const filteredHistory = targetDate 
+										? combinedHistory.filter(i => {
+											if (i.type === 'season') {
+												const sp = i.data as SeasonPriceRead;
+												return sp.start_date <= targetDate && sp.end_date >= targetDate;
+											} else {
+												return i.date <= new Date(targetDate + 'T23:59:59');
+											}
+										}) 
+										: combinedHistory}
+
+									{#if filteredHistory.length === 0}
+										<p class="text-center text-xs text-slate-500 py-2">No hay registros para esta fecha.</p>
+									{/if}
+
+									{#each filteredHistory as item}
+										{#if item.type === 'season'}
+											{@const ph = item.data as SeasonPriceRead}
+											<div class="p-2.5 bg-slate-50 dark:bg-slate-800/50 border {ph.is_archived ? 'border-slate-300 dark:border-slate-700' : 'border-emerald-300 dark:border-emerald-700'} rounded shadow-sm">
+												<div class="flex justify-between items-center mb-1">
+													<span class="text-[11px] font-bold uppercase {ph.is_archived ? 'text-slate-500' : 'text-emerald-600'}">
+														{ph.is_archived ? 'Archivado' : 'Activo'}
+													</span>
+													<span class="text-[10px] text-slate-400 font-mono" title="Fecha de Creación">
+														Creado: {ph.created_at ? new Date(ph.created_at).toLocaleDateString() : 'Desconocido'}
+													</span>
+												</div>
+												<div class="flex justify-between items-start">
+													<p class="text-xs font-medium text-slate-700 dark:text-slate-300">{ph.description || 'Temporada'}</p>
+													<span class="text-xs font-mono text-slate-500">Mult: x{ph.price_multiplier}</span>
+												</div>
+												<div class="flex justify-between text-[10px] text-slate-500 my-1">
+													<span>{ph.start_date} al {ph.end_date}</span>
+												</div>
+												<div class="pt-1 mt-1 border-t border-slate-200 dark:border-slate-700 flex justify-between items-end">
+													<span class="text-[10px] text-slate-400">Precio Base Creado: ${ph.snapshot_base_price !== null ? ph.snapshot_base_price : room.base_price}</span>
+													<strong class="text-sm {ph.is_archived ? 'text-slate-600 dark:text-slate-400' : 'text-emerald-700 dark:text-emerald-400'}">
+														${( (ph.snapshot_base_price !== null ? ph.snapshot_base_price : room.base_price) * ph.price_multiplier ).toFixed(2)}
+													</strong>
+												</div>
+											</div>
+										{:else}
+											{@const bp = item.data as any}
+											<div class="p-2.5 bg-blue-50/50 dark:bg-indigo-900/20 border border-blue-200 dark:border-indigo-800/60 rounded shadow-sm">
+												<div class="flex justify-between items-center mb-1">
+													<span class="text-[11px] font-bold uppercase text-blue-600 dark:text-indigo-400">
+														Ajuste Precio Base
+													</span>
+													<span class="text-[10px] text-slate-400 font-mono" title="Fecha de Creación">
+														Creado: {bp.created_at ? new Date(bp.created_at).toLocaleDateString() : 'Desconocido'}
+													</span>
+												</div>
+												<div class="flex justify-between items-center">
+													<span class="text-[10px] text-slate-500">Nuevo Precio Pleno Mínimo</span>
+													<strong class="text-sm text-blue-700 dark:text-indigo-300">
+														${Number(bp.base_price).toFixed(2)}
+													</strong>
+												</div>
+											</div>
+										{/if}
+									{/each}
+								{/if}
+							</div>
+						{/if}
+					</div>
 				</div>
 			</div>
 			

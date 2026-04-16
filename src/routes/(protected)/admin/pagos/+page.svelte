@@ -125,7 +125,12 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Admin - Finanzas y Pagos</title>
+</svelte:head>
+
 {#if hasAccess}
+
 <div class="admin-page fade-in">
 	<div class="admin-header-container">
 		<div>

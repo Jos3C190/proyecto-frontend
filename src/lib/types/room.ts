@@ -28,6 +28,21 @@ export interface SeasonPriceCreate {
 
 export interface SeasonPriceRead extends SeasonPriceCreate {
 	id: number;
+	created_at?: string;
+	is_archived?: boolean;
+	snapshot_base_price?: number;
+}
+
+export interface RoomBasePriceHistoryRead {
+	id: number;
+	room_id: number;
+	base_price: number;
+	created_at: string;
+}
+
+export interface RoomPriceHistoryResponse {
+	season_prices: SeasonPriceRead[];
+	base_prices: RoomBasePriceHistoryRead[];
 }
 
 export interface RoomRead {

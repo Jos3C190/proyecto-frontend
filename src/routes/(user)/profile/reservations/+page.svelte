@@ -28,8 +28,7 @@
 		<p>Historial y gestión de tus estadías en AFE Resort.</p>
 	</div>
 
-	<!-- Contenido oculto temporalmente por solicitud -->
-	{#if false}
+	
 	{#if loading}
 		<div class="loader-container">
 			<div class="spinner-large"></div>
@@ -101,7 +100,7 @@
 			{/each}
 		</div>
 	{/if}
-	{/if}
+	
 </div>
 
 <style>
