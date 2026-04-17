@@ -22,7 +22,7 @@
 		{ href: '/dashboard', label: 'Dashboard', icon: 'dashboard' as const, resource: 'dashboard' as const },
 		{ href: '/admin/usuarios', label: 'Usuarios', icon: 'users' as const, resource: 'users' as const },
 		{ href: '/admin/habitaciones', label: 'Habitaciones', icon: 'home' as const, resource: 'rooms' as const },
-		{ href: '/admin/reservaciones', label: 'Todas las Reservaciones', icon: 'clipboard' as const, resource: 'reservations' as const },
+		{ href: '/admin/reservaciones', label: 'Reservaciones', icon: 'clipboard' as const, resource: 'reservations' as const },
 		{ href: '/admin/pagos', label: 'Pagos', icon: 'payments' as const, resource: 'payments' as const },
 		{ href: '/admin/roles', label: 'Roles', icon: 'roles' as const, resource: 'roles' as const },
 		{ href: '/admin/permisos', label: 'Permisos', icon: 'permissions' as const, resource: 'permissions' as const },

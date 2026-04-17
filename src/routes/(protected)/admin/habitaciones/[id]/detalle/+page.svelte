@@ -2,7 +2,7 @@
 	import { page as sveltePage } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { getRoom, getRoomPriceHistory } from '$lib/services/room.service';
+	import { getRoom, getRoomPriceHistory, searchRooms } from '$lib/services/room.service';
 	import type { RoomRead, SeasonPriceRead, RoomPriceHistoryResponse } from '$lib/types/room';
 	import { toast } from '$lib/stores/toast.svelte';
 	import ImageLightboxModal from '$lib/components/admin/ImageLightboxModal.svelte';
@@ -17,12 +17,20 @@
 	let showHistory = $state(true); // Mostrar por defecto en la página dedicada
 	let priceHistory: RoomPriceHistoryResponse | null = $state(null);
 	let loadingHistory = $state(false);
-	let targetDate = $state(new Date().toISOString().split('T')[0]); // Fecha de hoy por defecto
+	let targetDate = $state((() => {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    })()); // Fecha local de hoy por defecto
 
 	let showImageModal = $state(false);
 	let currentImageIndex = $state(0);
+	let isAvailableToday = $state<boolean | null>(null);
+	let loadingAvailability = $state(false);
 
-	let computedDailyPrice = $derived.by(() => {
+	let computedPriceBreakdown = $derived.by(() => {
 		if (!targetDate || !priceHistory || !room) return null;
 		
 		const targetStr = targetDate;
@@ -39,28 +47,56 @@
 			new Date(bp.created_at || '') <= targetD
 		).sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
 		
-		const activeBp = activeBasePrices.length > 0 ? Number(activeBasePrices[0].base_price) : Number(room.base_price);
+		const basePriceUsed = activeBasePrices.length > 0 ? Number(activeBasePrices[0].base_price) : Number(room.base_price);
 
 		if (activeSp) {
-			return (activeBp * Number(activeSp.price_multiplier)).toFixed(2);
+			return {
+				total: (basePriceUsed * Number(activeSp.price_multiplier)).toFixed(2),
+				base: basePriceUsed.toFixed(2),
+				multiplier: activeSp.price_multiplier,
+				seasonName: activeSp.description || 'Temporada Dinámica',
+				type: 'season'
+			};
 		}
 
-		return activeBp.toFixed(2);
+		return {
+			total: basePriceUsed.toFixed(2),
+			base: basePriceUsed.toFixed(2),
+			multiplier: 1,
+			seasonName: null,
+			type: 'base'
+		};
 	});
 
 	async function loadRoomDetails() {
 		loading = true;
 		try {
 			room = await getRoom(id);
+			
 			// Cargar historial automáticamente
 			loadingHistory = true;
 			priceHistory = await getRoomPriceHistory(id);
+
+			// Consultar disponibilidad para HOY
+			loadingAvailability = true;
+			const now = new Date();
+			const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+			
+			const tom = new Date(now);
+			tom.setDate(now.getDate() + 1);
+			const tomStr = `${tom.getFullYear()}-${String(tom.getMonth() + 1).padStart(2, '0')}-${String(tom.getDate()).padStart(2, '0')}`;
+			
+			const search = await searchRooms(todayStr, tomStr, 1);
+			const found = search.find(r => r.room.id === id);
+			isAvailableToday = found ? found.is_available : false;
+
 		} catch (err: any) {
 			error = err.message;
 			toast.error(error);
 		} finally {
 			loading = false;
 			loadingHistory = false;
+			loadingAvailability = false;
 		}
 	}
 
@@ -102,7 +138,7 @@
                 <div class="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-800 flex items-center justify-center group-hover:border-amber-500/50 group-hover:bg-amber-50 dark:group-hover:bg-amber-900/20 transition-all">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 19l-7-7m0 0l7-7m-7 7h18" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </div>
-                <span class="text-xs font-black uppercase tracking-widest">Regresar al Inventario</span>
+                <span class="text-xs font-black uppercase tracking-widest">Regresar</span>
             </button>
         </div>
 
@@ -136,39 +172,7 @@
             
             <!-- Columna Izquierda: Visual y Técnica (7/12) -->
             <div class="lg:col-span-7 space-y-8">
-                
-                <!-- Card: Galería de Fotos -->
-                <section class="bg-white dark:bg-slate-900 rounded-[32px] p-8 shadow-sm border border-slate-100 dark:border-slate-800/50">
-                    <div class="flex items-center justify-between mb-8">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                            </div>
-                            <h2 class="text-xl font-bold font-['Outfit'] text-slate-800 dark:text-slate-100 uppercase tracking-wide">Multimedia</h2>
-                        </div>
-                        <span class="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{room.images?.length || 0} Archivos</span>
-                    </div>
-
-                    {#if room.images && room.images.length > 0}
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {#each room.images as img, i}
-                                <button type="button" class="group relative aspect-video bg-slate-100 dark:bg-slate-800 rounded-[28px] overflow-hidden border border-slate-200 dark:border-slate-700 cursor-zoom-in transition-all hover:shadow-xl hover:scale-[1.02]" onclick={() => openImage(i)}>
-                                    <img src="{img.url}" alt="Foto habitación" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" />
-                                    <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-                                        <span class="text-white text-[10px] font-bold uppercase tracking-widest">Ver en Pantalla Completa</span>
-                                    </div>
-                                </button>
-                            {/each}
-                        </div>
-                    {:else}
-                        <div class="p-20 bg-slate-50/50 dark:bg-slate-950/20 rounded-[32px] text-center border border-dashed border-slate-200 dark:border-slate-800">
-                            <span class="text-5xl block mb-4 opacity-10">📷</span>
-                            <p class="text-slate-400 font-bold uppercase tracking-widest text-xs">Sin material multimedia</p>
-                        </div>
-                    {/if}
-                </section>
-
-                <!-- Card: Información Detallada -->
+                         <!-- Card: Información Detallada -->
                 <section class="bg-white dark:bg-slate-900 rounded-[32px] p-8 shadow-sm border border-slate-100 dark:border-slate-800/50">
                     <div class="flex items-center gap-3 mb-8">
                         <div class="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-500">
@@ -178,6 +182,28 @@
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="col-span-full flex gap-6 pb-6 border-b border-slate-50 dark:border-slate-800/50">
+                            <div>
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Identificador</p>
+                                <p class="text-sm font-bold text-slate-700 dark:text-slate-200">Habitación {room.number}</p>
+                            </div>
+                            <div class="pl-6 border-l border-slate-200 dark:border-slate-800">
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Categoría</p>
+                                <p class="text-sm font-bold text-slate-700 dark:text-slate-200">{room.type}</p>
+                            </div>
+                            <div class="pl-6 border-l border-slate-200 dark:border-slate-800">
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Estado de Hoy</p>
+                                {#if loadingAvailability}
+                                    <div class="h-5 w-16 bg-slate-100 dark:bg-slate-800 animate-pulse rounded-md"></div>
+                                {:else}
+                                    <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-tight {isAvailableToday ? 'text-emerald-500' : 'text-rose-500'}">
+                                        <span class="w-1.5 h-1.5 rounded-full {isAvailableToday ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}"></span>
+                                        {isAvailableToday ? 'Libre' : 'Ocupada'}
+                                    </span>
+                                {/if}
+                            </div>
+                        </div>
+
                         <div class="space-y-6">
                             <div>
                                 <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Descripción General</h3>
@@ -214,6 +240,37 @@
                         </div>
                     </div>
                 </section>
+
+                <!-- Card: Galería de Fotos -->
+                <section class="bg-white dark:bg-slate-900 rounded-[32px] p-8 shadow-sm border border-slate-100 dark:border-slate-800/50">
+                    <div class="flex items-center justify-between mb-8">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2-2v12a2 2 0 002 2z"/></svg>
+                            </div>
+                            <h2 class="text-xl font-bold font-['Outfit'] text-slate-800 dark:text-slate-100 uppercase tracking-wide">Multimedia</h2>
+                        </div>
+                        <span class="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{room.images?.length || 0} Archivos</span>
+                    </div>
+
+                    {#if room.images && room.images.length > 0}
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {#each room.images as img, i}
+                                <button type="button" class="group relative aspect-video bg-slate-100 dark:bg-slate-800 rounded-[28px] overflow-hidden border border-slate-200 dark:border-slate-700 cursor-zoom-in transition-all hover:shadow-xl hover:scale-[1.02]" onclick={() => openImage(i)}>
+                                    <img src="{img.url}" alt="Foto habitación" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" />
+                                    <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+                                        <span class="text-white text-[10px] font-bold uppercase tracking-widest">Ver en Pantalla Completa</span>
+                                    </div>
+                                </button>
+                            {/each}
+                        </div>
+                    {:else}
+                        <div class="p-20 bg-slate-50/50 dark:bg-slate-950/20 rounded-[32px] text-center border border-dashed border-slate-200 dark:border-slate-800">
+                            <span class="text-5xl block mb-4 opacity-10">📷</span>
+                            <p class="text-slate-400 font-bold uppercase tracking-widest text-xs">Sin material multimedia</p>
+                        </div>
+                    {/if}
+                </section>
             </div>
 
             <!-- Columna Derecha: Auditoría y Precios (5/12) -->
@@ -240,11 +297,31 @@
                         <div class="flex flex-col gap-4">
                             <input type="date" bind:value={targetDate} class="w-full !bg-white dark:!bg-slate-900 dark:text-white !rounded-2xl !border-transparent !shadow-sm !py-3 !px-5 focus:!ring-[#D4AF37]/30 transition-all font-black" />
                             
-                            {#if computedDailyPrice !== null}
+                            {#if computedPriceBreakdown !== null}
                                 <div class="mt-2 text-center p-6 bg-amber-500 rounded-[28px] shadow-lg shadow-amber-500/20 text-white animate-pulse-subtle">
                                     <p class="text-[10px] font-black uppercase tracking-[0.3em] mb-1 opacity-80">Tarifa Vigente Oficial</p>
-                                    <p class="text-5xl font-black tracking-tighter">${computedDailyPrice}</p>
-                                    <p class="text-[10px] font-medium uppercase tracking-widest mt-2">{new Date(targetDate).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                                    <p class="text-5xl font-black tracking-tighter">${computedPriceBreakdown.total}</p>
+                                    
+                                    <div class="mt-3 flex items-center justify-center gap-2">
+                                        <div class="px-3 py-1 bg-white/20 rounded-full text-[9px] font-bold">
+                                            Base: ${computedPriceBreakdown.base}
+                                        </div>
+                                        {#if computedPriceBreakdown.type === 'season'}
+                                            <div class="flex items-center gap-1 text-[9px] font-bold">
+                                                <span>⨯</span>
+                                                <span class="px-3 py-1 bg-emerald-400 text-slate-900 rounded-full">
+                                                    {computedPriceBreakdown.multiplier} ({computedPriceBreakdown.seasonName})
+                                                </span>
+                                            </div>
+                                        {/if}
+                                    </div>
+
+                                    <p class="text-[10px] font-medium uppercase tracking-widest mt-4 opacity-70 border-t border-white/10 pt-3">
+                                        {(() => {
+                                            const [y, m, d] = targetDate.split('-').map(Number);
+                                            return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                                        })()}
+                                    </p>
                                 </div>
                             {/if}
                         </div>
