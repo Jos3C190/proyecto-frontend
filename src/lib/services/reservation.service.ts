@@ -70,8 +70,13 @@ export async function cancelReservation(id: number): Promise<void> {
 	}
 }
 
-export async function getAdminReservations(): Promise<ReservationRead[]> {
-	const res = await fetch(`${API_BASE}/admin/reservations`, {
+export async function getAdminReservations(roomId?: number): Promise<ReservationRead[]> {
+	const url = new URL(`${API_BASE}/admin/reservations`);
+	if (roomId) {
+		url.searchParams.append('room_id', roomId.toString());
+	}
+
+	const res = await fetch(url.toString(), {
 		headers: getHeaders()
 	});
 

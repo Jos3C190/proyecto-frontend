@@ -6,6 +6,8 @@
 	import type { RoomRead, SeasonPriceRead, RoomPriceHistoryResponse } from '$lib/types/room';
 	import { toast } from '$lib/stores/toast.svelte';
 	import ImageLightboxModal from '$lib/components/admin/ImageLightboxModal.svelte';
+	import RoomPriceProjection from '$lib/components/admin/RoomPriceProjection.svelte';
+	import RoomUpcomingReservations from '$lib/components/admin/RoomUpcomingReservations.svelte';
 	import '../../../adminPage.css';
 
 	let id = $derived(Number($sveltePage.params.id));
@@ -178,7 +180,7 @@
                         <div class="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-500">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         </div>
-                        <h2 class="text-xl font-bold font-['Outfit'] text-slate-800 dark:text-slate-100 uppercase tracking-wide">Atractivos y Capacidad</h2>
+                        <h2 class="text-xl font-bold font-['Outfit'] text-slate-800 dark:text-slate-100 uppercase tracking-wide">Información General</h2>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -240,6 +242,12 @@
                         </div>
                     </div>
                 </section>
+                
+                {#if room && priceHistory}
+                    <div class="space-y-8 mb-8">
+                        <RoomUpcomingReservations roomId={id} />
+                    </div>
+                {/if}
 
                 <!-- Card: Galería de Fotos -->
                 <section class="bg-white dark:bg-slate-900 rounded-[32px] p-8 shadow-sm border border-slate-100 dark:border-slate-800/50">
@@ -354,6 +362,11 @@
                         </div>
                     </div>
                 </section>
+
+                <!-- NUEVO: Módulos Analíticos Avanzados -->
+                {#if room && priceHistory}
+                    <RoomPriceProjection {room} {priceHistory} />
+                {/if}
 
                 <!-- Card: Historial de Auditoría Interna (Logs) -->
                 <section class="bg-white dark:bg-slate-900 rounded-[32px] p-8 shadow-sm border border-slate-100 dark:border-slate-800/50">

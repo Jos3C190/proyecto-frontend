@@ -52,6 +52,7 @@ export interface RoomRead {
 	capacity: number;
 	base_price: number;
 	description?: string | null;
+	cover_image_url?: string | null;
 	is_active: boolean;
 	amenities: RoomAmenityRead[];
 	images: RoomImageRead[];
@@ -64,6 +65,7 @@ export interface RoomCreate {
 	capacity: number;
 	base_price: number;
 	description?: string;
+	cover_image_url?: string;
 	is_active: boolean;
 	season_prices: SeasonPriceCreate[];
 	images: string[];
