@@ -99,11 +99,46 @@
 			rooms = roomsData;
 			roomTypes = typesData;
 			page = 1; // Reset to page 1 on reload
+
+			// Verificar disponibilidad de hoy automáticamente
+			checkTodayAvailability();
 		} catch (err: any) {
 			error = err.message;
 		} finally {
 			loading = false;
 		}
+	}
+
+	let availableTodayIds = $state<number[]>([]);
+	async function checkTodayAvailability() {
+		const today = new Date().toISOString().split('T')[0];
+		const tomorrow = new Date(new Date().setDate(new Date().getDate() + 1)).toISOString().split('T')[0];
+		try {
+			const results = await searchRooms(today, tomorrow, 1);
+			availableTodayIds = results.map(res => res.room.id);
+		} catch (e) {
+			console.error("Error al verificar disponibilidad de hoy", e);
+		}
+	}
+
+	function getTodayPrice(room: RoomRead) {
+		const today = new Date().toISOString().split('T')[0];
+		let multiplier = 1;
+		
+		// Encontrar si hay una temporada activa para hoy
+		if (room.season_prices) {
+			const activeSeason = room.season_prices.find(sp => 
+				!sp.is_archived && today >= sp.start_date && today <= sp.end_date
+			);
+			if (activeSeason) {
+				multiplier = activeSeason.price_multiplier;
+			}
+		}
+		
+		return {
+			price: room.base_price * multiplier,
+			hasSeason: multiplier !== 1
+		};
 	}
 
 	onMount(() => {
@@ -203,12 +238,12 @@
 				<table class="admin-table">
 					<thead>
 						<tr>
-							<th>ID</th>
-							<th>Número</th>
+							<th>Unidad</th>
 							<th>Tipo</th>
 							<th>Capacidad</th>
-							<th>Precio Base</th>
-							<th>Estado</th>
+							<th>Ocupación (Hoy)</th>
+							<th>Precio de Hoy</th>
+							<th>Catálogo</th>
 							<th>Acciones</th>
 						</tr>
 					</thead>
@@ -219,31 +254,71 @@
 							</tr>
 						{:else}
 							{#each paginatedRooms as r}
+								{@const todayPrice = getTodayPrice(r)}
+								{@const isAvailableToday = availableTodayIds.includes(r.id)}
 								<tr>
-									<td>{r.id}</td>
-								<td><strong>{r.number}</strong></td>
-								<td><span class="admin-badge">{r.type}</span></td>
-								<td>{r.capacity} personas</td>
-								<td><strong style="color: #D4AF37;">${r.base_price}</strong></td>
-								<td>
-									<span class={r.is_active ? 'admin-badge' : 'admin-badge-inactive'}>
-										{r.is_active ? 'Activa' : 'Inactiva'}
-									</span>
-								</td>
-								<td>
-									<div class="flex justify-center gap-1">
-										<button class="action-icon-btn" onclick={() => openDetails(r)} title="Ver detalles">
-											<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-										</button>
-										<button class="action-icon-btn" onclick={() => openEdit(r)} title="Editar">
-											<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-										</button>
-										<button class="action-icon-btn danger" onclick={() => handleDelete(r.id)} title="Eliminar">
-											<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-										</button>
-									</div>
-								</td>
-							</tr>
+									<td>
+										<div class="flex items-center gap-3">
+											<div class="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center font-black text-slate-400 text-xs border border-slate-100 dark:border-slate-700">
+												{r.number}
+											</div>
+											<strong class="text-slate-700 dark:text-slate-200">{r.type}</strong>
+										</div>
+									</td>
+									<td><span class="admin-badge">{r.type}</span></td>
+									<td>
+										<div class="flex items-center gap-1.5 text-slate-500">
+											<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" stroke-width="2.5"/></svg>
+											<span>{r.capacity}</span>
+										</div>
+									</td>
+									<td>
+										{#if isAvailableToday}
+											<div class="flex items-center gap-1.5 text-emerald-600 font-bold text-[10px] uppercase tracking-wider bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-full w-fit">
+												<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+												Libre
+											</div>
+										{:else}
+											<div class="flex items-center gap-1.5 text-rose-600 font-bold text-[10px] uppercase tracking-wider bg-rose-50 dark:bg-rose-500/10 px-2 py-1 rounded-full w-fit">
+												<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+												Ocupada
+											</div>
+										{/if}
+									</td>
+									<td>
+										<div class="flex flex-col">
+											<div class="flex items-center gap-2">
+												<strong class="text-slate-900 dark:text-white text-base">${todayPrice.price}</strong>
+												{#if todayPrice.hasSeason}
+													<span class="w-1.5 h-1.5 rounded-full bg-amber-500" title="Precio de temporada activo"></span>
+												{/if}
+											</div>
+											{#if todayPrice.hasSeason}
+												<span class="text-[9px] text-slate-400 font-medium line-through">Base: ${r.base_price}</span>
+											{:else}
+												<span class="text-[9px] text-slate-400 font-medium uppercase tracking-widest">Base</span>
+											{/if}
+										</div>
+									</td>
+									<td>
+										<span class={r.is_active ? 'admin-badge' : 'admin-badge-inactive'}>
+											{r.is_active ? 'Activa' : 'Inactiva'}
+										</span>
+									</td>
+									<td>
+										<div class="flex justify-center gap-1">
+											<button class="action-icon-btn" onclick={() => openDetails(r)} title="Ver detalles">
+												<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+											</button>
+											<button class="action-icon-btn" onclick={() => openEdit(r)} title="Editar">
+												<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+											</button>
+											<button class="action-icon-btn danger" onclick={() => handleDelete(r.id)} title="Eliminar">
+												<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+											</button>
+										</div>
+									</td>
+								</tr>
 							{/each}
 						{/if}
 					</tbody>
