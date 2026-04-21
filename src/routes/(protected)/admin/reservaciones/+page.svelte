@@ -3,8 +3,6 @@
 		getAdminReservations,
 		deleteAdminReservation
 	} from '$lib/services/reservation.service';
-	import { fetchUsers } from '$lib/services/admin.service';
-	import { getAdminRooms } from '$lib/services/room.service';
 	import type { ReservationRead } from '$lib/types/reservation';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -12,16 +10,9 @@
 	import { hasPermission } from '$lib/types';
 	import { toast } from '$lib/stores/toast.svelte';
 	
-	// Modals
-	import CreateReservationModal from '$lib/components/admin/CreateReservationModal.svelte';
-	import EditReservationModal from '$lib/components/admin/EditReservationModal.svelte';
-	import ReservationDetailsModal from '$lib/components/admin/ReservationDetailsModal.svelte';
-	
 	import '../adminPage.css';
 
 	let reservations = $state<ReservationRead[]>([]);
-	let users = $state<any[]>([]);
-	let rooms = $state<any[]>([]);
 	
 	let loading = $state(true);
 	let error = $state<string | null>(null);
@@ -88,19 +79,6 @@
 		page = 1;
 	}
 
-	// Modals Visibility
-	let showCreate = $state(false);
-	let showEdit = $state(false);
-	let showDetails = $state(false);
-	
-	// Shared selection
-	let viewingRes = $state<ReservationRead | null>(null);
-	let editingRes = $state<ReservationRead | null>(null);
-	
-	// Create step overrides (paying existing)
-	let createInitialStep = $state<1 | 2>(1);
-	let createInitialRes = $state<ReservationRead | null>(null);
-
 	function formatDateShort(dateStr: string) {
 		const d = new Date(dateStr + 'T00:00:00');
 		return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
@@ -110,12 +88,6 @@
 		loading = true;
 		try {
 			reservations = await getAdminReservations();
-			const [uRes, rRes] = await Promise.all([
-				fetchUsers().catch(() => []),
-				getAdminRooms().catch(() => [])
-			]);
-			users = uRes;
-			rooms = rRes;
 			error = null;
 			page = 1; // Reset to page 1 on reload
 		} catch (err: any) {
@@ -135,26 +107,15 @@
 	});
 
 	function openCreate() {
-		createInitialStep = 1;
-		createInitialRes = null;
-		showCreate = true;
+		goto('/admin/reservaciones/nueva');
 	}
 
 	function openEdit(r: ReservationRead) {
-		editingRes = r;
-		showEdit = true;
+		goto(`/admin/reservaciones/${r.id}/editar`);
 	}
 
 	function openDetails(r: ReservationRead) {
-		viewingRes = r;
-		showDetails = true;
-	}
-
-	function openPaymentFromDetails(res: ReservationRead) {
-		createInitialRes = res;
-		createInitialStep = 2;
-		showDetails = false;
-		showCreate = true;
+		goto(`/admin/reservaciones/${r.id}/detalle`);
 	}
 
 	async function handleDelete(r: ReservationRead) {
@@ -178,7 +139,7 @@
 <div class="admin-page fade-in">
 	<div class="admin-header-container">
 		<div>
-			<h1 class="admin-title">Módulo de Reservaciones</h1>
+			<h1 class="admin-title">Reservaciones</h1>
 			<p class="admin-desc">Gestión completa de las reservaciones (Crear, Editar, Eliminar, Pagar).</p>
 		</div>
 		<div class="admin-toolbar flex-wrap">
@@ -332,29 +293,6 @@
 		{/if}
 	</section>
 </div>
-
-<CreateReservationModal 
-	bind:show={showCreate} 
-	{users} 
-	{rooms} 
-	onSuccess={loadAll} 
-	initialStep={createInitialStep}
-	initialReservation={createInitialRes}
-/>
-
-<EditReservationModal 
-	bind:show={showEdit} 
-	reservation={editingRes} 
-	{rooms}
-	onSuccess={loadAll} 
-/>
-
-<ReservationDetailsModal 
-	bind:show={showDetails} 
-	reservation={viewingRes} 
-	onPay={openPaymentFromDetails}
-	onCancel={loadAll}
-/>
 {/if}
 
 

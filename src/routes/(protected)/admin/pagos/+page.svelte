@@ -134,7 +134,7 @@
 <div class="admin-page fade-in">
 	<div class="admin-header-container">
 		<div>
-			<h1 class="admin-title">Panel de Finanzas</h1>
+			<h1 class="admin-title">Pagos</h1>
 			<p class="admin-desc">Control total de ingresos, cobros y comprobantes fiscales.</p>
 		</div>
 		<div class="admin-toolbar flex-wrap">
