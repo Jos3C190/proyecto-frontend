@@ -6,17 +6,67 @@
 	import { hasPermission } from '$lib/types';
 	import { fetchAuditLogs } from '$lib/services/admin.service';
 	import type { AuditLogRead } from '$lib/services/admin.service';
+	import AuditLogDetailModal from '$lib/components/ui/AuditLogDetailModal.svelte';
+	import { createPersistence } from '$lib/utils/persistence';
 	import '../adminPage.css';
+
+	const persistence = createPersistence({
+		key: 'admin_bitacora',
+		defaultValues: {
+			page: 1,
+			limit: 100,
+			searchQuery: '',
+			filterMethod: ''
+		}
+	});
+
+	const initialState = persistence.getInitialState();
 
 	let logs = $state<AuditLogRead[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
-	let filterMethod = $state('');
-	let limit = $state(100);
-let page = $state(1);
-let hasNextPage = $state(false);
+	
+	let page = $state(initialState.page);
+	let limit = $state(initialState.limit);
+	let searchQuery = $state(initialState.searchQuery);
+	let filterMethod = $state(initialState.filterMethod);
+
+	let hasNextPage = $state(false);
+
+	// Sync state to persistence
+	$effect(() => {
+		persistence.saveState({
+			page,
+			limit,
+			searchQuery,
+			filterMethod
+		});
+	});
+
+	let isDetailModalOpen = $state(false);
+	let selectedLog = $state<AuditLogRead | null>(null);
+
+	function openDetail(log: AuditLogRead) {
+		selectedLog = log;
+		isDetailModalOpen = true;
+	}
 
 let hasAccess = $derived(hasPermission($authStore.user, 'audit_logs', 'read'));
+
+// Filtros
+let filteredLogs = $derived(
+	logs.filter((log) => {
+		const query = searchQuery.toLowerCase().trim();
+		return (
+			query === '' ||
+			(log.resource && log.resource.toLowerCase().includes(query)) ||
+			(log.action && log.action.toLowerCase().includes(query)) ||
+			(log.path && log.path.toLowerCase().includes(query)) ||
+			(log.metadata_json && log.metadata_json.toLowerCase().includes(query)) ||
+			(log.user_id && log.user_id.toString().includes(query))
+		);
+	})
+);
 
 function setPageSize(e: Event) {
 	const v = Number((e.currentTarget as HTMLSelectElement).value);
@@ -72,7 +122,7 @@ function prevPage() {
 			goto('/dashboard', { replaceState: true });
 			return;
 		}
-		await load();
+		await load(page);
 	});
 </script>
 
@@ -88,21 +138,39 @@ function prevPage() {
 			<h1 class="admin-title">Bitácora</h1>
 			<p class="admin-desc">Registro de acciones del sistema: creaciones, modificaciones y eliminaciones de usuarios, roles o permisos.</p>
 		</div>
-		<div class="admin-toolbar">
-			<div class="flex items-center gap-3">
-				<label for="filter-method" class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Método:</label>
+		<div class="admin-toolbar gap-3">
+			<div class="admin-search-wrapper w-full sm:w-64">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg
+				>
+				<input type="text" placeholder="Buscar en bitácora..." bind:value={searchQuery} oninput={() => page = 1} />
+			</div>
+
+			<div class="admin-filters w-full justify-between lg:w-auto lg:justify-end">
 				<select
 					id="filter-method"
 					bind:value={filterMethod}
 					onchange={() => load(1)}
 				>
-					<option value="">Todos</option>
+					<option value="">Todos los métodos</option>
 					<option value="POST">Crear (POST)</option>
 					<option value="UPDATE">Actualizar (PUT/PATCH)</option>
 					<option value="DELETE">Eliminar (DELETE)</option>
 				</select>
+
+				<button type="button" class="admin-btn-secondary !p-2" onclick={async () => { await load(page); toast.info('Bitácora actualizada'); }} title="Actualizar">
+					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 22v-6h6"/></svg>
+				</button>
 			</div>
-			<button type="button" class="admin-btn-secondary" onclick={async () => { await load(page); toast.info('Bitácora actualizada'); }}>Actualizar</button>
 		</div>
 	</div>
 
@@ -127,7 +195,7 @@ function prevPage() {
 					</tr>
 				</thead>
 				<tbody>
-					{#each logs as log}
+					{#each filteredLogs as log}
 						<tr>
 							<td class="whitespace-nowrap text-slate-600 dark:text-slate-400">{formatDate(log.created_at)}</td>
 							<td><span class="admin-badge">{log.event_type}</span></td>
@@ -136,8 +204,10 @@ function prevPage() {
 							<td>{log.action ?? '—'}</td>
 							<td>{log.method ?? '—'}</td>
 							<td class="max-w-xs truncate" title={log.path ?? ''}>{log.path ?? '—'}</td>
-							<td class="align-top text-xs text-slate-500 dark:text-slate-400 whitespace-pre-wrap break-words max-w-xl">
-								{log.metadata_json ?? '—'}
+							<td>
+								<button class="action-icon-btn" onclick={() => openDetail(log)} title="Ver Detalle">
+									<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+								</button>
 							</td>
 						</tr>
 					{/each}
@@ -147,7 +217,7 @@ function prevPage() {
 
 			<div class="admin-pagination">
 				<div class="admin-pagination-left">
-					<span>Mostrando {logs.length} registro(s)</span>
+					<span>Mostrando {filteredLogs.length} registro(s)</span>
 					<div class="admin-page-size">
 						<label for="page-size-bitacora" class="text-sm">Filas:</label>
 						<select id="page-size-bitacora" value={limit} onchange={setPageSize}>
@@ -172,4 +242,10 @@ function prevPage() {
 		</section>
 	{/if}
 </div>
+
+<AuditLogDetailModal 
+	isOpen={isDetailModalOpen} 
+	log={selectedLog} 
+	onClose={() => isDetailModalOpen = false} 
+/>
 {/if}

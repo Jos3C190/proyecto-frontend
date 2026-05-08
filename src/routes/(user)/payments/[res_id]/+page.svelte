@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { getReservation } from '$lib/services/reservation.service';
-	import { getUserWompiLink } from '$lib/services/reservation.service';
+	import { getReservation, getUserWompiLink, createPayment } from '$lib/services/reservation.service';
+	import { processTransferPayment } from '$lib/services/payment.service';
+	import { updateProfile } from '$lib/services/user.service';
 	import type { ReservationRead } from '$lib/types/reservation';
 	import type { PaymentRead } from '$lib/types/payment';
 	import { onMount, onDestroy } from 'svelte';
+	import FiscalDataForm from '$lib/components/ui/FiscalDataForm.svelte';
 
-	let resId = Number($page.params.res_id);
+	let resId = $derived(Number($page.params.res_id));
 	let reservation = $state<ReservationRead | null>(null);
 	let paymentReceipt = $state<PaymentRead | null>(null);
     let successMessage = $state<string | null>(null);
@@ -15,15 +17,26 @@
 	let processing = $state(false);
 	let error = $state<string | null>(null);
     let wompiPolling: any = null;
+    let method = $state('card');
+    let receiptType = $state('final_consumer');
+    let fiscalData = $state<any>(null);
+    let transferFile = $state<FileList | null>(null);
 
 	onMount(async () => {
+        const id = Number($page.params.res_id);
+        if (isNaN(id)) {
+            error = "ID de reservación inválido";
+            loading = false;
+            return;
+        }
+
 		try {
-			reservation = await getReservation(resId);
+			reservation = await getReservation(id);
 			if (reservation.status !== 'pending') {
 				error = 'Esta reservación ya fue procesada, pagada o cancelada.';
 			}
 		} catch (err: any) {
-			error = err.message;
+			error = err.message || "Error desconocido al cargar la reservación";
 		} finally {
 			loading = false;
 		}
@@ -41,42 +54,69 @@
 		processing = true;
 
 		try {
-			const redirectUrl = `${window.location.origin}/profile/reservations`;
-            const url = await getUserWompiLink(reservation.id, redirectUrl);
-            
-            // Redirigir a Wompi
-            window.location.href = url;
-            
+            // Si es crédito fiscal, primero actualizamos el perfil del usuario para asegurar datos correctos
+            if (receiptType === 'fiscal_credit' && fiscalData) {
+                try {
+                    await updateProfile(fiscalData);
+                } catch (err: any) {
+                    console.error("Error al actualizar datos fiscales:", err);
+                    // No bloqueamos el pago si falla el perfil, pero avisamos en consola
+                }
+            }
+
+			if (method === 'card') {
+                const redirectUrl = `${window.location.origin}/profile/reservations`;
+                const url = await getUserWompiLink(reservation.id, redirectUrl);
+                // Redirigir a Wompi
+                window.location.href = url;
+            } else if (method === 'transfer') {
+                if (!transferFile || transferFile.length === 0) {
+                    error = "Debes subir el comprobante de transferencia";
+                    processing = false;
+                    return;
+                }
+                const payment = await processTransferPayment(
+                    reservation.id, 
+                    Number(reservation.total_cost), 
+                    transferFile[0], 
+                    receiptType
+                );
+                paymentReceipt = payment;
+                successMessage = "¡Comprobante subido exitosamente! Tu reservación pasará a estado Confirmado cuando sea validado.";
+                processing = false;
+            } else {
+                // Manual payment (Cash)
+                const payment = await createPayment(reservation.id, {
+                    amount: Number(reservation.total_cost),
+                    method: method,
+                    receipt_type: receiptType
+                });
+                paymentReceipt = payment;
+                successMessage = "¡Compromiso de pago registrado! Por favor, paga en recepción.";
+                processing = false;
+            }
 		} catch (err: any) {
-			error = err.message || "Error al inicializar el pago con Wompi SV";
+			error = err.message || "Error al procesar el pago";
             processing = false;
 		}
 	}
 
-    // Polling opcional si se abre en otra pestaña, en este caso 
-    // al ser redirect, no se requiere mucho, pero lo dejamos por seguridad si el usuario vuelve
-    async function pollForReceipt(gatewayRef: string) {
-        processing = true;
-        let attempts = 0;
-        
-        if (wompiPolling) clearInterval(wompiPolling);
-        wompiPolling = setInterval(async () => {
-            attempts++;
-            try {
-                const updatedRes = await getReservation(resId);
-                if (updatedRes.status === 'confirmed') {
-                    clearInterval(wompiPolling);
-                    processing = false;
-                    successMessage = "¡Pago procesado exitosamente! Tu reservación está confirmada.";
-                }
-            } catch(e) {}
-            
-            if (attempts > 15) {
-                clearInterval(wompiPolling);
-                processing = false;
-                successMessage = "El pago parece exitoso en Wompi, pero estamos esperando la confirmación del Webhook. Por favor verifica en tus reservaciones más tarde.";
-            }
-        }, 2000);
+    function printReceipt() {
+        window.print();
+    }
+
+    function formatDateTime(dateStr: string) {
+        if (!dateStr) return '---';
+        // Extraer componentes manualmente para evitar que el navegador aplique offsets
+        const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/);
+        if (match) {
+            const [_, y, m, d, hh, mm, ss] = match;
+            const hour = parseInt(hh);
+            const ampm = hour >= 12 ? 'p. m.' : 'a. m.';
+            const h12 = hour % 12 || 12;
+            return `${parseInt(d)}/${parseInt(m)}/${y}, ${h12}:${mm}:${ss} ${ampm}`;
+        }
+        return dateStr;
     }
 </script>
 
@@ -107,15 +147,38 @@
 						Factura - {paymentReceipt.receipt_data.receipt_type === 'fiscal_credit' ? 'Crédito Fiscal' : 'Consumidor Final'}
 					</p>
 					<p class="text-slate-400 dark:text-slate-500 text-xs mt-2">
-						Fecha: {new Date(paymentReceipt.receipt_data.date).toLocaleString()}
+						Fecha: {formatDateTime(paymentReceipt.receipt_data.date)}
 					</p>
 				</div>
 				
 				<div class="space-y-4 mb-8 text-slate-700 dark:text-slate-300">
 					<div class="flex flex-col sm:flex-row justify-between border-b border-dotted border-slate-200 dark:border-slate-800 pb-3">
 						<span class="text-slate-500 text-sm font-bold uppercase tracking-wider">Cliente</span>
-						<span class="font-medium font-['Outfit']">{paymentReceipt.receipt_data.customer}</span>
+						<span class="font-medium font-['Outfit']">
+                            {#if paymentReceipt.receipt_data.receipt_type === 'fiscal_credit'}
+                                {paymentReceipt.receipt_data.business_name || paymentReceipt.receipt_data.customer}
+                            {:else}
+                                {paymentReceipt.receipt_data.customer}
+                            {/if}
+                        </span>
 					</div>
+                    
+                    {#if paymentReceipt.receipt_data.receipt_type === 'fiscal_credit'}
+                        <div class="grid grid-cols-2 gap-4 border-b border-dotted border-slate-200 dark:border-slate-800 pb-3">
+                            <div class="flex flex-col">
+                                <span class="text-slate-500 text-[10px] font-bold uppercase tracking-wider">NIT</span>
+                                <span class="font-medium text-sm">{paymentReceipt.receipt_data.nit || '---'}</span>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="text-slate-500 text-[10px] font-bold uppercase tracking-wider">NRC</span>
+                                <span class="font-medium text-sm">{paymentReceipt.receipt_data.nrc || '---'}</span>
+                            </div>
+                            <div class="flex flex-col col-span-2">
+                                <span class="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Giro</span>
+                                <span class="font-medium text-sm">{paymentReceipt.receipt_data.economic_activity || '---'}</span>
+                            </div>
+                        </div>
+                    {/if}
 					<div class="flex flex-col sm:flex-row justify-between border-b border-dotted border-slate-200 dark:border-slate-800 pb-3">
 						<span class="text-slate-500 text-sm font-bold uppercase tracking-wider">Reservación ID</span>
 						<span class="font-medium font-['Outfit'] text-[#D4AF37]">{paymentReceipt.receipt_data.reservation_id}</span>
@@ -136,7 +199,7 @@
 
 				<div class="bg-slate-50 dark:bg-black/30 rounded-xl p-6 text-right border border-slate-100 dark:border-slate-800 mb-10">
 					<p class="text-slate-500 dark:text-slate-400 text-sm font-bold uppercase tracking-widest mb-1">Total Pagado</p>
-					<h3 class="font-['Outfit'] text-4xl text-[#D4AF37] font-semibold">${paymentReceipt.receipt_data.amount_paid}</h3>
+					<h3 class="font-['Outfit'] text-4xl text-[#D4AF37] font-semibold">${Number(paymentReceipt.receipt_data.amount_paid).toFixed(2)}</h3>
 				</div>
 
 				<div class="no-print flex flex-col sm:flex-row gap-4 justify-center">
@@ -164,7 +227,7 @@
 		{:else if error}
 			<div class="max-w-2xl mx-auto rounded-2xl border border-red-200 bg-white/70 backdrop-blur-xl p-8 text-center shadow-xl dark:border-red-900/30 dark:bg-slate-900/80">
 				<div class="w-16 h-16 mx-auto bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mb-6">
-					<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+					<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
 				</div>
 				<h3 class="font-['Outfit'] text-2xl text-slate-800 dark:text-white mb-2">Error en el Pago</h3>
 				<p class="text-slate-600 dark:text-slate-400 mb-8">{error}</p>
@@ -190,12 +253,43 @@
 					</h3>
 					
 					<div class="space-y-4 mb-8">
-						<div class="flex justify-between items-center pb-3 border-b border-dashed border-slate-200 dark:border-slate-700">
+						<div class="flex justify-between items-center pb-2 border-b border-dashed border-slate-200 dark:border-slate-700">
 							<span class="text-slate-500 dark:text-slate-400 text-sm">Cód. Reserva</span>
 							<span class="font-bold text-slate-800 dark:text-slate-200 font-['Outfit']">{reservation.unique_id}</span>
 						</div>
-						<div class="flex justify-between items-center pb-3 border-b border-dashed border-slate-200 dark:border-slate-700">
-							<span class="text-slate-500 dark:text-slate-400 text-sm">Estado Actual</span>
+                        
+                        <!-- Tax Breakdown reactive to receiptType -->
+                        {#if receiptType === 'fiscal_credit'}
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-slate-500 dark:text-slate-400">Subtotal (sin IVA)</span>
+                                <span class="text-slate-800 dark:text-slate-200">
+                                    ${reservation.subtotal ? Number(reservation.subtotal).toFixed(2) : (Number(reservation.total_cost) / 1.18).toFixed(2)}
+                                </span>
+                            </div>
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-slate-500 dark:text-slate-400">IVA (13%)</span>
+                                <span class="text-slate-800 dark:text-slate-200">
+                                    ${reservation.tax_iva ? Number(reservation.tax_iva).toFixed(2) : ((Number(reservation.total_cost) / 1.18) * 0.13).toFixed(2)}
+                                </span>
+                            </div>
+                        {:else}
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-slate-500 dark:text-slate-400">Subtotal (IVA incluido)</span>
+                                <span class="text-slate-800 dark:text-slate-200">
+                                    ${((reservation.subtotal ? Number(reservation.subtotal) : (Number(reservation.total_cost) / 1.18)) * 1.13).toFixed(2)}
+                                </span>
+                            </div>
+                        {/if}
+
+                        <div class="flex justify-between items-center text-sm pb-3 border-b border-dashed border-slate-200 dark:border-slate-700">
+                            <span class="text-slate-500 dark:text-slate-400">Impuesto Turismo (5%)</span>
+                            <span class="text-slate-800 dark:text-slate-200">
+                                ${reservation.tax_tourism ? Number(reservation.tax_tourism).toFixed(2) : ((Number(reservation.total_cost) / 1.18) * 0.05).toFixed(2)}
+                            </span>
+                        </div>
+
+						<div class="flex justify-between items-center">
+							<span class="text-slate-500 dark:text-slate-400 text-sm">Estado</span>
 							<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-500 border border-yellow-200 dark:border-yellow-800/50 uppercase tracking-wider">
 								Pendiente
 							</span>
@@ -203,8 +297,8 @@
 					</div>
 
 					<div class="bg-[#D4AF37]/5 dark:bg-[#D4AF37]/10 rounded-xl p-5 border border-[#D4AF37]/20 text-center">
-						<span class="block text-slate-500 dark:text-[#D4AF37]/80 text-xs font-bold uppercase tracking-widest mb-1">Monto a Cancelar</span>
-						<span class="font-['Outfit'] text-4xl text-[#D4AF37] font-bold">${reservation.total_cost}</span>
+						<span class="block text-slate-500 dark:text-[#D4AF37]/80 text-xs font-bold uppercase tracking-widest mb-1">Total a Cancelar</span>
+						<span class="font-['Outfit'] text-4xl text-[#D4AF37] font-bold">${Number(reservation.total_cost).toFixed(2)}</span>
 					</div>
 				</div>
 
@@ -242,10 +336,35 @@
 							</div>
 						</div>
 
+                        {#if receiptType === 'fiscal_credit' && reservation.user}
+                            <div class="mt-4 p-2 bg-indigo-50/50 dark:bg-indigo-500/5 rounded-2xl border border-indigo-100 dark:border-indigo-500/20">
+                                <FiscalDataForm 
+                                    profile={reservation.user.profile || {}} 
+                                    onUpdate={(data) => fiscalData = data} 
+                                />
+                            </div>
+                        {/if}
+
+						{#if method === 'transfer'}
+						<div class="space-y-2">
+							<label for="transferFile" class="block text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Comprobante de Transferencia (Imagen)</label>
+							<div class="relative">
+								<input type="file" id="transferFile" bind:files={transferFile} accept="image/*" required
+									class="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all dark:bg-slate-800/50 dark:border-slate-700 dark:text-white dark:focus:ring-[#D4AF37]/50 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#D4AF37]/20 file:text-[#D4AF37] hover:file:bg-[#D4AF37]/30" />
+							</div>
+						</div>
+						{/if}
+
 						<div class="rounded-xl bg-green-50/50 border border-green-100 p-4 flex gap-3 items-start dark:bg-green-900/10 dark:border-green-900/30">
 							<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
 							<p class="text-sm text-green-800 dark:text-green-300">
-								<strong>Pago Seguro:</strong> Esta transacción será procesada de forma segura a través de la pasarela oficial <strong>Wompi SV (Banco Agrícola)</strong>.
+								{#if method === 'card'}
+                                    <strong>Pago Seguro:</strong> Esta transacción será procesada de forma segura a través de <strong>Wompi SV</strong>.
+                                {:else if method === 'transfer'}
+                                    <strong>Instrucciones:</strong> Al confirmar, se registrará su compromiso de pago. Por favor realice la transferencia a la cuenta <strong>123-456789-0 del Banco Agrícola</strong>.
+                                {:else}
+                                    <strong>Pago en Hotel:</strong> Puede realizar su pago en recepción al momento de su llegada en efectivo o tarjeta.
+                                {/if}
 							</p>
 						</div>
 
@@ -256,7 +375,7 @@
 									Procesando...
 								{:else}
 									<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-									Pagar ${reservation.total_cost} con Wompi
+									{method === 'card' ? `Pagar $${Number(reservation.total_cost).toFixed(2)} con Wompi` : method === 'transfer' ? 'Subir Comprobante' : 'Confirmar Compromiso de Pago'}
 								{/if}
 							</button>
 						</div>

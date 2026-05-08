@@ -8,7 +8,12 @@ export interface ReservationRead {
 	check_in: string; // date YYYY-MM-DD
 	check_out: string;
 	guests: number;
+	
+	subtotal?: number;
+	tax_iva?: number;
+	tax_tourism?: number;
 	total_cost: number;
+	
 	total_paid: number;
 	balance: number;
 	status: string; // pending, confirmed, cancelled
@@ -21,6 +26,13 @@ export interface ReservationRead {
 		profile?: {
 			first_name: string;
 			last_name: string;
+			phone?: string;
+			person_type?: string;
+			document_type?: string;
+			document_number?: string;
+			nrc?: string;
+			nit?: string;
+			economic_activity?: string;
 		};
 	};
 	payments?: Array<{

@@ -17,6 +17,14 @@ export interface UserProfileRead {
 	department?: string | null;
 	municipality?: string | null;
 	address_complement?: string | null;
+	person_type?: string | null;
+	document_type?: string | null;
+	document_number?: string | null;
+	nrc?: string | null;
+	nit?: string | null;
+	business_name?: string | null;
+	economic_activity?: string | null;
+	taxpayer_type?: string | null;
 }
 
 export interface UserProfileUpdate {
@@ -29,6 +37,13 @@ export interface UserProfileUpdate {
 	department?: string | null;
 	municipality?: string | null;
 	address_complement?: string | null;
+	person_type?: string | null;
+	document_type?: string | null;
+	document_number?: string | null;
+	nrc?: string | null;
+	nit?: string | null;
+	business_name?: string | null;
+	economic_activity?: string | null;
 }
 
 
@@ -85,7 +100,11 @@ export function hasRole(user: User | null, roleName: string): boolean {
 
 /** Comprueba si el usuario tiene permiso (resource:action) según Casbin */
 export function hasPermission(user: User | null, resource: string, action: string): boolean {
-	if (!user?.permissions?.length) return false;
+	if (!user) return false;
+	// Bypass para administradores
+	if (hasRole(user, 'admin')) return true;
+	
+	if (!user.permissions?.length) return false;
 	const key = `${resource}:${action}`;
 	return user.permissions.includes(key);
 }

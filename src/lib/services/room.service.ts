@@ -53,9 +53,9 @@ export async function createAdminRoomType(payload: RoomTypeCreate): Promise<Room
 
 	const response = await fetch(`${API_BASE}/admin/room-types`, {
 		method: 'POST',
-		headers: { 
+		headers: {
 			'Content-Type': 'application/json',
-			'Authorization': `Bearer ${stored.token}` 
+			'Authorization': `Bearer ${stored.token}`
 		},
 		body: JSON.stringify(payload)
 	});
@@ -117,6 +117,12 @@ export async function getRoomPriceHistory(id: number): Promise<RoomPriceHistoryR
 export async function getPublicRooms(): Promise<RoomRead[]> {
 	const res = await fetch(`${API_BASE}/rooms/public`);
 	if (!res.ok) throw new Error('Error al obtener habitaciones públicas.');
+	return res.json();
+}
+
+export async function getPublicRoomTypes(): Promise<string[]> {
+	const res = await fetch(`${API_BASE}/rooms/types`);
+	if (!res.ok) throw new Error('Error al obtener tipos de habitación.');
 	return res.json();
 }
 

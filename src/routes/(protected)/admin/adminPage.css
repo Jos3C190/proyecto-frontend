@@ -17,27 +17,65 @@
 .admin-header-container {
 	@apply flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-6;
 }
+
 .admin-header-container .admin-desc {
 	@apply mb-0;
 }
 
 .admin-toolbar {
-	@apply flex flex-wrap items-center gap-4 rounded-xl border border-slate-200/50 bg-white/50 px-6 py-4 shadow-sm backdrop-blur-md dark:border-slate-700/50 dark:bg-slate-900/50;
-}
-.admin-toolbar select {
-	@apply rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 transition-colors focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:focus:border-[#D4AF37];
+	@apply flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-4 mb-8 
+	       bg-white/40 backdrop-blur-xl border border-slate-200/50 rounded-[2rem] shadow-sm
+	       dark:bg-slate-900/20 dark:border-slate-800/50 dark:shadow-none;
 }
 
-.admin-hint {
-	@apply text-sm text-slate-500 dark:text-slate-400;
+.admin-search-wrapper {
+	@apply relative flex-1 max-w-sm;
+}
+
+.admin-search-wrapper input {
+	@apply w-full pl-11 pr-4 h-10 text-sm font-medium bg-white/50 border border-slate-200/50 rounded-2xl transition-all duration-300 hover:bg-white/80 focus:bg-white focus:border-[#D4AF37]/50 focus:ring-4 focus:ring-[#D4AF37]/5 outline-none dark:bg-slate-800/30 dark:border-slate-700/50 dark:text-slate-200 dark:hover:bg-slate-800/50 dark:focus:bg-slate-800/80;
+}
+
+.admin-search-wrapper svg {
+	@apply absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors pointer-events-none;
+}
+
+.admin-search-wrapper input:focus + svg {
+	@apply text-[#D4AF37];
+}
+
+.admin-filters {
+	@apply flex flex-wrap items-center gap-3;
+}
+
+.admin-input-group {
+	@apply flex items-center gap-2 px-4 h-10 bg-white/50 border border-slate-200/50 rounded-2xl transition-all hover:bg-white/80 focus-within:bg-white focus-within:border-[#D4AF37]/50 focus-within:ring-4 focus-within:ring-[#D4AF37]/5 dark:bg-slate-800/30 dark:border-slate-700/50 dark:hover:bg-slate-800/50 dark:focus-within:bg-slate-800/80;
+}
+
+.admin-input-group span {
+	@apply text-[10px] font-black uppercase tracking-widest text-slate-400;
+}
+
+.admin-input-group input {
+	@apply bg-transparent border-none outline-none text-sm font-medium text-slate-600 dark:text-slate-300 p-0 w-28;
+}
+
+.admin-filters select,
+.admin-select {
+	@apply appearance-none h-10 bg-white/50 border border-slate-200/50 rounded-2xl px-5 text-sm font-medium text-slate-600 transition-all cursor-pointer hover:bg-white/80 focus:bg-white focus:border-[#D4AF37]/50 focus:ring-4 focus:ring-[#D4AF37]/5 outline-none dark:bg-slate-800/30 dark:border-slate-700/50 dark:text-slate-300 dark:hover:bg-slate-800/50 dark:focus:bg-slate-800/80;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 1rem center;
+	background-size: 1rem;
+	padding-right: 2.5rem;
 }
 
 .admin-btn {
-	@apply inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#AA8222] px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-[#0B0E14] shadow-lg shadow-[#D4AF37]/20 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#D4AF37]/30 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:ring-offset-2 dark:focus:ring-offset-slate-900 cursor-pointer;
+	@apply inline-flex items-center justify-center gap-2 h-10 rounded-2xl bg-[#D4AF37] px-6 text-xs font-bold uppercase tracking-widest text-[#0B0E14] transition-all hover:bg-[#AA8222] hover:shadow-lg hover:shadow-[#D4AF37]/10 active:scale-95 disabled:opacity-50 disabled:pointer-events-none cursor-pointer;
 }
 
 .admin-btn-secondary {
-	@apply inline-flex items-center justify-center gap-2 rounded-lg border border-[#D4AF37] bg-transparent px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-slate-800 transition-all hover:bg-[#D4AF37]/10 dark:text-slate-200 dark:hover:bg-[#D4AF37]/20 cursor-pointer;
+	@apply inline-flex items-center justify-center gap-2 h-10 rounded-2xl border border-slate-200/80 bg-white/50 px-5 text-xs font-bold uppercase tracking-widest text-slate-500 transition-all hover:bg-white hover:border-slate-300 dark:bg-slate-800/30 dark:border-slate-700/80 dark:text-slate-400 dark:hover:bg-slate-800 cursor-pointer;
 }
 
 .admin-btn-secondary:disabled {
@@ -99,12 +137,15 @@
 .admin-badge-inactive {
 	@apply inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-500 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700;
 }
+
 .admin-badge-system {
 	@apply inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-blue-600 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50;
 }
+
 .action-icon-btn {
 	@apply inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 text-slate-600 transition-all hover:bg-[#D4AF37] hover:text-white dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-[#D4AF37] dark:hover:text-white cursor-pointer;
 }
+
 .action-icon-btn.danger {
 	@apply hover:bg-red-500;
 }
@@ -173,8 +214,15 @@
 }
 
 @keyframes fadeIn {
-	from { opacity: 0; transform: translateY(5px); }
-	to { opacity: 1; transform: translateY(0); }
+	from {
+		opacity: 0;
+		transform: translateY(5px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 
 /* Forzar iconos de calendario claros en modo oscuro */

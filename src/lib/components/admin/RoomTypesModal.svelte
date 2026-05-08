@@ -57,11 +57,11 @@
 				<form onsubmit={handleCreateRoomType} class="flex gap-2 items-end bg-slate-50 dark:bg-slate-800/5 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
 					<div class="w-full">
 						<label class="text-[10px] font-black text-slate-400 mb-1.5 block uppercase tracking-[0.15em]">Nombre</label>
-						<input type="text" class="w-full border-none bg-white dark:bg-slate-950 px-4 py-2 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500/20" placeholder="Ej. Presidencial" bind:value={newRoomTypeName} required />
+						<input type="text" class="w-full border-none !bg-slate-50 dark:!bg-slate-800/50 px-4 py-2 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500/20" placeholder="Ej. Presidencial" bind:value={newRoomTypeName} required />
 					</div>
 					<div class="w-full">
 						<label class="text-[10px] font-black text-slate-400 mb-1.5 block uppercase tracking-[0.15em]">Descripción</label>
-						<input type="text" class="w-full border-none bg-white dark:bg-slate-950 px-4 py-2 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500/20" bind:value={newRoomTypeDesc} placeholder="Opcional" />
+						<input type="text" class="w-full border-none !bg-slate-50 dark:!bg-slate-800/50 px-4 py-2 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500/20" bind:value={newRoomTypeDesc} placeholder="Opcional" />
 					</div>
 					<button type="submit" class="admin-btn h-[40px] px-6 !rounded-xl !text-[10px]" disabled={savingRoomType}>Añadir</button>
 				</form>

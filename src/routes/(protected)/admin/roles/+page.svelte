@@ -13,10 +13,26 @@
 		type RoleUpdate
 	} from '$lib/services/admin.service';
 	import type { RoleRead } from '$lib/types';
+	import GenericConfirmModal from '$lib/components/ui/GenericConfirmModal.svelte';
+	import { createPersistence } from '$lib/utils/persistence';
 	import '../adminPage.css';
+
+	const persistence = createPersistence({
+		key: 'admin_roles',
+		defaultValues: {
+			page: 1,
+			pageSize: 10,
+			searchQuery: ''
+		}
+	});
+
+	const initialState = persistence.getInitialState();
 
 	let roles = $state<RoleRead[]>([]);
 	let loading = $state(true);
+	let isDeleteModalOpen = $state(false);
+	let roleToDelete = $state<RoleRead | null>(null);
+	let actionLoading = $state(false);
 	let error = $state<string | null>(null);
 	let showCreate = $state(false);
 	let editingRole = $state<RoleRead | null>(null);
@@ -24,13 +40,35 @@
 	let formError = $state<string | null>(null);
 	let formLoading = $state(false);
 
+	let page = $state(initialState.page);
+	let pageSize = $state(initialState.pageSize);
+	let searchQuery = $state(initialState.searchQuery);
+
+	// Sync state to persistence
+	$effect(() => {
+		persistence.saveState({
+			page,
+			pageSize,
+			searchQuery
+		});
+	});
+
 	let hasAccess = $derived(hasPermission($authStore.user, 'roles', 'read'));
 
+	let filteredRoles = $derived(
+		roles.filter((r) => {
+			const query = searchQuery.toLowerCase().trim();
+			return (
+				query === '' ||
+				r.name.toLowerCase().includes(query) ||
+				(r.description && r.description.toLowerCase().includes(query))
+			);
+		})
+	);
+
 	// Pagination
-	let page = $state(1);
-	let pageSize = $state(10);
-	let paginatedRoles = $derived(roles.slice((page - 1) * pageSize, page * pageSize));
-	let totalPages = $derived(Math.ceil(roles.length / pageSize) || 1);
+	let paginatedRoles = $derived(filteredRoles.slice((page - 1) * pageSize, page * pageSize));
+	let totalPages = $derived(Math.ceil(filteredRoles.length / pageSize) || 1);
 	let hasNextPage = $derived(page < totalPages);
 	let hasPrevPage = $derived(page > 1);
 
@@ -47,7 +85,6 @@
 		try {
 			roles = await fetchRoles();
 			error = null;
-			page = 1; // Reset memory to first page
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Error de conexión';
 		} finally {
@@ -124,14 +161,23 @@
 	}
 
 	async function handleDelete(r: RoleRead) {
-		if (!confirm(`¿Eliminar el rol "${r.name}"? Los usuarios con este rol deberán ser reasignados primero.`)) return;
+		roleToDelete = r;
+		isDeleteModalOpen = true;
+	}
+
+	async function confirmDelete() {
+		if (!roleToDelete) return;
+		actionLoading = true;
 		try {
-			await deleteRole(r.id);
-			toast.success(`Rol "${r.name}" eliminado`);
+			await deleteRole(roleToDelete.id);
+			toast.success(`Rol "${roleToDelete.name}" eliminado`);
+			isDeleteModalOpen = false;
 			await load();
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : 'Error al eliminar rol';
 			toast.error(msg);
+		} finally {
+			actionLoading = false;
 		}
 	}
 
@@ -157,8 +203,37 @@
 			<p class="admin-desc">Crea y edita roles. Asigna permisos desde la sección Permisos.</p>
 		</div>
 		<div class="admin-toolbar">
+			<div class="admin-search-wrapper">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg
+				>
+				<input type="text" placeholder="Buscar rol..." bind:value={searchQuery} oninput={() => page = 1} />
+			</div>
+
 			{#if hasPermission($authStore.user, 'roles', 'create')}
-				<button type="button" class="admin-btn" onclick={openCreate}>Crear Rol</button>
+				<button type="button" class="admin-btn" onclick={openCreate}>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg
+					>
+					Crear Rol</button
+				>
 			{/if}
 		</div>
 	</div>
@@ -215,7 +290,7 @@
 
 			<div class="admin-pagination">
 				<div class="admin-pagination-left">
-					<span>Mostrando {roles.length} rol(es)</span>
+					<span>Mostrando {filteredRoles.length} rol(es)</span>
 					<div class="admin-page-size">
 						<label for="page-size-roles" class="text-sm">Filas:</label>
 						<select id="page-size-roles" value={pageSize} onchange={setPageSize}>
@@ -295,3 +370,14 @@
 	</div>
 {/if}
 {/if}
+
+<GenericConfirmModal
+	isOpen={isDeleteModalOpen}
+	title="Eliminar Rol"
+	message="¿Estás seguro de que deseas eliminar el rol &quot;{roleToDelete?.name}&quot;? Los usuarios con este rol deberán ser reasignados manualmente antes de que el cambio surta efecto completo."
+	confirmText="Eliminar"
+	variant="danger"
+	onConfirm={confirmDelete}
+	onClose={() => (isDeleteModalOpen = false)}
+	loading={actionLoading}
+/>

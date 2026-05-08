@@ -4,6 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import ThemeToggle from '$lib/components/layout/ThemeToggle.svelte';
+	import NotificationBell from '$lib/components/ui/NotificationBell.svelte';
 	
 	let { alwaysTransparent = false } = $props<{ alwaysTransparent?: boolean }>();
 
@@ -51,45 +52,50 @@
 		</a>
 		<div class="nav-links">
 			{#if isLoggedIn}
-				<a href="/rooms" class="nav-link" class:active={currentPath.startsWith('/rooms')}>Habitaciones</a>
-				<a href="/profile/reservations" class="nav-link" class:active={currentPath.startsWith('/profile/reservations')}>Mis Reservas</a>
-				
-				<div class="dropdown-wrapper" use:clickOutside>
-					<button class="btn-profile" onclick={toggleDropdown} aria-expanded={dropdownOpen}>
-						<div class="avatar-circle">
-							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-						</div>
-						<span class="username">{$authStore.user?.profile?.first_name || 'Perfil'}</span>
-						<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="chevron"><polyline points="6 9 12 15 18 9"/></svg>
-					</button>
-
-					{#if dropdownOpen}
-						<div class="dropdown-menu">
-							<div class="dropdown-header">
-								<span class="header-name">{$authStore.user?.profile?.first_name} {$authStore.user?.profile?.last_name}</span>
-								<span class="header-email">{$authStore.user?.email}</span>
-							</div>
-							<div class="dropdown-divider"></div>
-							<a href="/profile" class="dropdown-item" onclick={() => dropdownOpen = false}>
-								Mi Perfil
-							</a>
-							{#if isAdmin}
-								<a href="/dashboard" class="dropdown-item text-gold" onclick={() => dropdownOpen = false}>
-									Panel de Administración
-								</a>
-							{/if}
-							<div class="dropdown-divider"></div>
-							<button class="dropdown-item text-danger" onclick={handleLogout}>
-								Cerrar Sesión
-							</button>
-						</div>
-					{/if}
-				</div>
+				<a href="/rooms" class="nav-link hidden md:inline-block" class:active={currentPath.startsWith('/rooms')}>Habitaciones</a>
+				<a href="/profile/reservations" class="nav-link hidden md:inline-block" class:active={currentPath.startsWith('/profile/reservations')}>Mis Reservas</a>
 			{:else}
 				<a href="/login" class="nav-link">Acceder</a>
-				<a href="/rooms" class="btn-gold">Reservar Ahora</a>
+				<a href="/rooms" class="btn-gold hidden sm:inline-flex">Reservar Ahora</a>
 			{/if}
-			<div class="border-l border-slate-300/30 pl-4 ml-2 dark:border-slate-700/50">
+
+			<div class="flex items-center gap-2 sm:gap-3 border-l border-slate-300/30 pl-4 ml-2 dark:border-slate-700/50">
+				{#if isLoggedIn}
+					<div class="dropdown-wrapper mr-1" use:clickOutside>
+						<button class="btn-profile" onclick={toggleDropdown} aria-expanded={dropdownOpen}>
+							<div class="avatar-circle">
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+							</div>
+							<span class="username hidden md:inline-block">{$authStore.user?.profile?.first_name || 'Perfil'}</span>
+							<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="chevron"><polyline points="6 9 12 15 18 9"/></svg>
+						</button>
+
+						{#if dropdownOpen}
+							<div class="dropdown-menu">
+								<div class="dropdown-header">
+									<span class="header-name">{$authStore.user?.profile?.first_name} {$authStore.user?.profile?.last_name}</span>
+									<span class="header-email">{$authStore.user?.email}</span>
+								</div>
+								<div class="dropdown-divider"></div>
+								<a href="/profile" class="dropdown-item" onclick={() => dropdownOpen = false}>
+									Mi Perfil
+								</a>
+								{#if isAdmin}
+									<a href="/dashboard" class="dropdown-item text-gold" onclick={() => dropdownOpen = false}>
+										Panel de Administración
+									</a>
+								{/if}
+								<div class="dropdown-divider"></div>
+								<button class="dropdown-item text-danger" onclick={handleLogout}>
+									Cerrar Sesión
+								</button>
+							</div>
+						{/if}
+					</div>
+
+					<NotificationBell />
+				{/if}
+
 				<ThemeToggle />
 			</div>
 		</div>
@@ -190,32 +196,28 @@
 	.btn-profile[aria-expanded="true"] .chevron { transform: rotate(180deg); }
 
 	.dropdown-menu {
-		position: absolute; top: 100%; right: 0; margin-top: 0.75rem;
-		background: #11151d;
-		border: 1px solid rgba(255,255,255,0.08);
-		border-radius: 12px;
-		box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-		min-width: 220px;
-		overflow: hidden;
+		@apply absolute top-full right-0 mt-3 rounded-xl overflow-hidden min-w-[220px];
+		@apply bg-white border border-slate-200 shadow-2xl;
+		@apply dark:bg-[#11151d] dark:border-white/10 dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)];
 		animation: fadeIn 0.2s ease;
 	}
-	.dropdown-header { padding: 1.25rem 1.25rem 1rem; display: flex; flex-direction: column; gap: 0.25rem; }
-	.header-name { color: #fff; font-size: 0.9rem; font-weight: 700; }
-	.header-email { color: #64748b; font-size: 0.75rem; }
+	.dropdown-header { @apply p-5 flex flex-col gap-1; }
+	.header-name { @apply text-slate-900 dark:text-white text-sm font-bold; }
+	.header-email { @apply text-slate-500 dark:text-slate-400 text-xs; }
 	
-	.dropdown-divider { height: 1px; background: rgba(255,255,255,0.05); }
+	.dropdown-divider { @apply h-px bg-slate-100 dark:bg-white/5; }
 	
 	.dropdown-item {
 		@apply block w-full text-left px-5 py-3 bg-transparent border-none;
-		color: #94a3b8; text-decoration: none; font-size: 0.85rem; font-weight: 600;
-		text-transform: uppercase; letter-spacing: 0.5px;
-		cursor: pointer; transition: all 0.2s; font-family: inherit;
+		@apply text-slate-600 dark:text-slate-400 text-[11px] font-bold uppercase tracking-wider;
+		@apply cursor-pointer transition-all duration-200;
+		font-family: inherit;
 	}
-	.dropdown-item:hover { background: rgba(212, 175, 55, 0.1); color: #D4AF37; }
+	.dropdown-item:hover { @apply bg-[#D4AF37]/10 text-[#D4AF37]; }
 	
-	.text-gold { color: #D4AF37; }
-	.text-danger { color: #ef4444; }
-	.text-danger:hover { background: rgba(239, 68, 68, 0.1); color: #f87171; }
+	.text-gold { @apply text-[#D4AF37]; }
+	.text-danger { @apply text-red-500; }
+	.text-danger:hover { @apply bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400; }
 
 	@keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 

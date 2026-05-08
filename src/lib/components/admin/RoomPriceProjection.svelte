@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { RoomRead, RoomPriceHistoryResponse } from '$lib/types/room';
+    import { formatToElSalvadorDate, getElSalvadorDateObj } from '$lib/utils/date';
     
     let { room, priceHistory } = $props<{
         room: RoomRead;
@@ -34,15 +35,12 @@
     }
 
     function getLocalDateString(d: Date) {
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+        return formatToElSalvadorDate(d);
     }
 
     const projectionData = $derived.by(() => {
         const data = [];
-        const start = new Date();
+        const start = getElSalvadorDateObj();
         
         for (let i = 0; i < daysToProject; i++) {
             const d = new Date(start);

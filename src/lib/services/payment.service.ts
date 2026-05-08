@@ -38,3 +38,36 @@ export async function getPayment(id: number): Promise<PaymentRead> {
 
 	return await res.json();
 }
+
+export async function processTransferPayment(
+	reservationId: number,
+	amount: number,
+	file: File,
+	receiptType?: string
+): Promise<PaymentRead> {
+	const stored = getStoredAuth();
+	if (!stored) throw new Error('No autenticado');
+
+	const formData = new FormData();
+	formData.append('reservation_id', reservationId.toString());
+	formData.append('amount', amount.toString());
+	formData.append('file', file);
+	if (receiptType) {
+		formData.append('receipt_type', receiptType);
+	}
+
+	const res = await fetch(`${API_BASE}/payments/transfer`, {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${stored.token}`
+		},
+		body: formData
+	});
+
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({}));
+		throw new Error(err.detail ?? 'Error al subir el comprobante de pago');
+	}
+
+	return await res.json();
+}

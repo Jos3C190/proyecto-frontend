@@ -1,15 +1,50 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { getReservation, cancelReservation } from '$lib/services/reservation.service';
+	import { getReservation, cancelReservation, cancelPayment } from '$lib/services/reservation.service';
 	import type { ReservationRead } from '$lib/types/reservation';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
+	import { toast } from '$lib/stores/toast.svelte';
+	import CancellationModal from '$lib/components/ui/CancellationModal.svelte';
+	import PaymentCancelModal from '$lib/components/ui/PaymentCancelModal.svelte';
 
 	let resId = Number($page.params.res_id);
 	let reservation = $state<ReservationRead | null>(null);
 	let loading = $state(true);
 	let cancelLoading = $state(false);
+	let isCancelModalOpen = $state(false);
+	let isPaymentModalOpen = $state(false);
+	let selectedPaymentId = $state<number | null>(null);
 	let error = $state<string | null>(null);
+	let timeLeft = $state<string | null>(null);
+	let timer: ReturnType<typeof setInterval>;
+
+	function updateTimer() {
+		if (!reservation || reservation.status !== 'pending') {
+			timeLeft = null;
+			if (timer) clearInterval(timer);
+			return;
+		}
+		
+		// Calcular expiración a 24 horas de la última actualización (ej. desde que el admin la rechazó)
+		const updatedAt = new Date(reservation.updated_at).getTime();
+		const expiresAt = updatedAt + (24 * 60 * 60 * 1000);
+		const now = new Date().getTime();
+		const diff = expiresAt - now;
+
+		if (diff <= 0) {
+			timeLeft = "Expirado";
+			if (timer) clearInterval(timer);
+			// Recargar para ver si el backend ya la canceló
+			setTimeout(() => loadReservation(), 2000);
+		} else {
+			const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+			const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+			const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+			
+			timeLeft = `${hours}h ${minutes}m ${seconds}s`;
+		}
+	}
 
 	async function loadReservation() {
 		try {
@@ -18,6 +53,10 @@
 			error = err.message;
 		} finally {
 			loading = false;
+			if (reservation?.status === 'pending') {
+				updateTimer();
+				if (!timer) timer = setInterval(updateTimer, 1000);
+			}
 		}
 	}
 
@@ -25,16 +64,42 @@
 		loadReservation();
 	});
 
-	async function handleCancel() {
-		if (!confirm('¿Estás seguro de que quieres cancelar esta reservación? Dependiendo de la fecha, podría aplicarse una penalización.')) return;
-		
+	onDestroy(() => {
+		if (timer) clearInterval(timer);
+	});
+
+	async function confirmCancellation() {
 		cancelLoading = true;
 		try {
 			await cancelReservation(resId);
-			alert('Reservación cancelada.');
+			isCancelModalOpen = false;
 			await loadReservation();
 		} catch (err: any) {
-			alert(err.message);
+			toast.error(err.message);
+		} finally {
+			cancelLoading = false;
+		}
+	}
+
+	async function handleCancel() {
+		isCancelModalOpen = true;
+	}
+
+	async function handleCancelPayment(paymentId: number) {
+		selectedPaymentId = paymentId;
+		isPaymentModalOpen = true;
+	}
+
+	async function confirmPaymentCancellation() {
+		if (selectedPaymentId === null) return;
+		cancelLoading = true;
+		try {
+			await cancelPayment(selectedPaymentId);
+			isPaymentModalOpen = false;
+			selectedPaymentId = null;
+			await loadReservation();
+		} catch (err: any) {
+			toast.error(err.message);
 		} finally {
 			cancelLoading = false;
 		}
@@ -60,12 +125,31 @@
 					</h2>
 					<p class="text-slate-500 dark:text-slate-400 font-medium tracking-widest text-sm uppercase">CÓDIGO: {reservation.unique_id}</p>
 				</div>
-				<span class="inline-flex items-center px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border
-					{reservation.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-700/50' : 
-					 reservation.status === 'confirmed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-700/50' : 
-					 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-700/50'}">
-					{reservation.status === 'pending' ? 'Pendiente' : reservation.status === 'confirmed' ? 'Confirmada' : 'Cancelada'}
-				</span>
+				<div class="flex flex-col items-end gap-2">
+					<span class="inline-flex items-center px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border
+						{reservation.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-700/50' : 
+						 reservation.status === 'verifying' ? 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-700/50' : 
+						 reservation.status === 'confirmed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-700/50' : 
+						 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-700/50'}">
+						{reservation.status === 'pending' ? 'Pendiente' : reservation.status === 'verifying' ? 'Verificando Pago' : reservation.status === 'confirmed' ? 'Confirmada' : 'Cancelada'}
+					</span>
+					{#if timeLeft && reservation.status === 'pending'}
+						<div class="text-[10px] font-bold tracking-wider uppercase text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-lg border border-red-200 dark:border-red-800/30 shadow-sm animate-pulse">
+							⏳ Expira en: {timeLeft}
+						</div>
+					{/if}
+
+					{#if reservation.status === 'pending'}
+						{#each (reservation.payments || []).filter(p => p.status === 'failed' && p.receipt_data?.rejection_reason) as failedPay}
+							<div class="w-full max-w-xs mt-2 p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 rounded-xl text-[11px] text-rose-700 dark:text-rose-400 shadow-sm animate-in slide-in-from-top-2 duration-500">
+								<div class="flex gap-2">
+									<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+									<p><strong>Pago Rechazado:</strong> {failedPay.receipt_data.rejection_reason}</p>
+								</div>
+							</div>
+						{/each}
+					{/if}
+				</div>
 			</div>
 			
 			<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -115,7 +199,7 @@
 						{:else if (reservation.balance || 0) < 0}
 							{Number(Math.abs(reservation.balance!)).toLocaleString('en-US', {minimumFractionDigits: 2})}
 							<br><span class="text-sm text-indigo-400">A tu favor por cambios</span>
-						{#else}
+						{:else}
 							{Number(reservation.total_cost).toLocaleString('en-US', {minimumFractionDigits: 2})}
 						{/if}
 					</p>
@@ -129,22 +213,44 @@
 				</a>
 				
 				
-				{#if (reservation.balance || 0) > 0}
+				{#if (reservation.balance || 0) > 0 && reservation.status !== 'verifying'}
 					<button class="w-full sm:w-auto px-8 py-3 rounded-xl border border-red-200 bg-red-50/50 text-sm font-bold uppercase tracking-widest text-red-600 transition hover:bg-red-100 dark:border-red-900/30 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 shadow-sm" onclick={handleCancel} disabled={cancelLoading}>
-						{cancelLoading ? 'Procesando...' : 'Cancelar'}
+						{cancelLoading ? 'Procesando...' : 'Cancelar Reserva'}
 					</button>
 					<a href="/payments/{reservation.id}" class="w-full sm:w-auto px-8 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA8222] text-sm font-bold uppercase tracking-widest text-slate-900 transition hover:from-[#f3cd54] hover:to-[#c69a2b] shadow-lg shadow-[#D4AF37]/20 text-center">
 						Proceder al Pago
 					</a>
 				{:else if reservation.status === 'confirmed'}
 					<button class="w-full sm:w-auto px-8 py-3 rounded-xl border border-red-200 bg-red-50/50 text-sm font-bold uppercase tracking-widest text-red-600 transition hover:bg-red-100 dark:border-red-900/30 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 shadow-sm" onclick={handleCancel} disabled={cancelLoading}>
-						{cancelLoading ? 'Procesando...' : 'Cancelar'}
+						{cancelLoading ? 'Procesando...' : 'Cancelar Reserva'}
 					</button>
+				{:else if reservation.status === 'verifying'}
+					{@const verifyingPayment = reservation.payments?.find(p => p.status === 'verifying')}
+					{#if verifyingPayment}
+						<button class="w-full sm:w-auto px-8 py-3 rounded-xl border border-orange-200 bg-orange-50/50 text-sm font-bold uppercase tracking-widest text-orange-600 transition hover:bg-orange-100 shadow-sm dark:border-orange-900/30 dark:bg-orange-500/10 dark:text-orange-400 dark:hover:bg-orange-500/20" onclick={() => handleCancelPayment(verifyingPayment.id)} disabled={cancelLoading}>
+							{cancelLoading ? 'Procesando...' : 'Cancelar Pago Pendiente'}
+						</button>
+					{/if}
 				{/if}
 			</div>
 		{/if}
 	</div>
 </div>
+
+<CancellationModal
+	isOpen={isCancelModalOpen}
+	reservation={reservation}
+	onConfirm={confirmCancellation}
+	onClose={() => (isCancelModalOpen = false)}
+	loading={cancelLoading}
+/>
+
+<PaymentCancelModal
+	isOpen={isPaymentModalOpen}
+	onConfirm={confirmPaymentCancellation}
+	onClose={() => (isPaymentModalOpen = false)}
+	loading={cancelLoading}
+/>
 
 <style>
 	.fade-in {

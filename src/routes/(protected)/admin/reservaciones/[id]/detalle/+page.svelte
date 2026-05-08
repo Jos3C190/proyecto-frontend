@@ -6,12 +6,14 @@
 		getReservation, 
 		updateAdminReservation,
 		payAdminReservation,
-		getAdminWompiLink
+		getAdminWompiLink,
+		refundReservation
 	} from '$lib/services/reservation.service';
 	import type { ReservationRead, AdminReservationUpdate, AdminPaymentCreate } from '$lib/types/reservation';
 	import { toast } from '$lib/stores/toast.svelte';
 	import { authStore } from '$lib/stores/auth.store';
 	import { hasPermission } from '$lib/types';
+	import GenericConfirmModal from '$lib/components/ui/GenericConfirmModal.svelte';
 	import '../../../adminPage.css';
 
 	let id = $derived(Number($sveltePage.params.id));
@@ -19,6 +21,10 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let cancelling = $state(false);
+	let refunding = $state(false);
+
+	let isConfirmModalOpen = $state(false);
+	let modalConfig = $state<{ title: string; message: string; onConfirm: () => Promise<void> } | null>(null);
 
 	let hasReadAccess = $derived(hasPermission($authStore.user, 'reservations', 'read'));
 	let hasUpdateAccess = $derived(hasPermission($authStore.user, 'reservations', 'update'));
@@ -41,18 +47,46 @@
 
 	async function handleCancel() {
 		if (!reservation) return;
-		if (!confirm(`¿Estás seguro de cancelar la reservación ${reservation.unique_id}?`)) return;
 		
-		cancelling = true;
-		try {
-			await updateAdminReservation(reservation.id, { status: 'cancelled' } as AdminReservationUpdate);
-			toast.success('Reservación cancelada exitosamente');
-			await loadReservation();
-		} catch (e: any) {
-			toast.error(e.message || 'Error al cancelar la reservación');
-		} finally {
-			cancelling = false;
-		}
+		modalConfig = {
+			title: 'Cancelar Reservación',
+			message: `¿Estás seguro de cancelar la reservación ${reservation.unique_id}? Esta acción no se puede deshacer.`,
+			onConfirm: async () => {
+				cancelling = true;
+				try {
+					await updateAdminReservation(reservation.id, { status: 'cancelled' } as AdminReservationUpdate);
+					toast.success('Reservación cancelada exitosamente');
+					await loadReservation();
+				} catch (e: any) {
+					toast.error(e.message || 'Error al cancelar la reservación');
+				} finally {
+					cancelling = false;
+				}
+			}
+		};
+		isConfirmModalOpen = true;
+	}
+
+	async function handleRefund() {
+		if (!reservation) return;
+
+		modalConfig = {
+			title: 'Procesar Reembolso',
+			message: '¿Estás seguro de procesar la devolución de saldo para esta reservación? Se registrará una transacción de reembolso para dejar el balance en cero.',
+			onConfirm: async () => {
+				refunding = true;
+				try {
+					await refundReservation(reservation.id);
+					toast.success('Reembolso registrado exitosamente');
+					await loadReservation();
+				} catch (e: any) {
+					toast.error(e.message || 'Error al procesar el reembolso');
+				} finally {
+					refunding = false;
+				}
+			}
+		};
+		isConfirmModalOpen = true;
 	}
 
 	function handleBack() {
@@ -83,8 +117,32 @@
 	const statusColors: Record<string, string> = {
 		'confirmed': 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
 		'pending': 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+		'verifying': 'bg-orange-500/10 text-orange-600 border-orange-500/20',
 		'cancelled': 'bg-rose-500/10 text-rose-600 border-rose-500/20'
 	};
+
+	function formatDateTime(dateStr: string) {
+		if (!dateStr) return '---';
+		const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/);
+		if (match) {
+			const [_, y, m, d, hh, mm, ss] = match;
+			const hour = parseInt(hh);
+			const ampm = hour >= 12 ? 'p. m.' : 'a. m.';
+			const h12 = hour % 12 || 12;
+			return `${parseInt(d)}/${parseInt(m)}/${y}, ${h12}:${mm}:${ss} ${ampm}`;
+		}
+		return dateStr;
+	}
+
+	function formatMethod(m: string) {
+		const map: any = { card: 'Tarjeta', cash: 'Efectivo', transfer: 'Transferencia', refund: 'Reembolso' };
+		return map[m] || m;
+	}
+
+	function formatStatus(s: string) {
+		const map: any = { completed: 'Completado', verifying: 'Verificando', failed: 'Fallido/Rechazado' };
+		return map[s] || s;
+	}
 </script>
 
 <svelte:head>
@@ -124,7 +182,7 @@
                     <button class="admin-btn-secondary px-6 !py-3" onclick={goToEdit}>
                         Editar Reserva
                     </button>
-                    {#if reservation.balance > 0}
+                    {#if reservation.balance > 0 && reservation.status !== 'verifying'}
                         <button class="admin-btn px-6 !py-3" onclick={goToPayment}>
                              Registrar Pago
                         </button>
@@ -134,7 +192,7 @@
         {/if}
     </div>
 
-    {#if loading}
+	{#if loading}
         <div class="flex flex-col items-center justify-center p-32 bg-white dark:bg-slate-900 rounded-[40px] border border-slate-100 dark:border-slate-800 shadow-sm">
             <div class="w-16 h-16 border-4 border-[#D4AF37]/20 border-t-[#D4AF37] rounded-full animate-spin mb-6"></div>
             <p class="text-slate-400 font-bold uppercase tracking-widest text-xs">Consultando folio bancario y reserva...</p>
@@ -165,7 +223,11 @@
                                     <div>
                                         <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Nombre Completo</p>
                                         <p class="text-sm font-bold text-slate-800 dark:text-slate-200">
-                                            {reservation.user.profile ? `${reservation.user.profile.first_name} ${reservation.user.profile.last_name}` : 'Perfil no configurado'}
+                                            {#if reservation.user.profile}
+                                                {reservation.user.profile.person_type === 'Juridica' ? (reservation.user.profile.business_name || reservation.user.profile.first_name) : `${reservation.user.profile.first_name} ${reservation.user.profile.last_name === 'N/A' ? '' : reservation.user.profile.last_name || ''}`}
+                                            {:else}
+                                                Perfil no configurado
+                                            {/if}
                                         </p>
                                     </div>
                                     <div>
@@ -292,9 +354,15 @@
                             </p>
                         </div>
 
-                        {#if reservation.balance > 0}
+                        {#if reservation.balance > 0 && reservation.status !== 'verifying'}
                             <button class="w-full admin-btn !py-4 mt-4 shadow-amber-500/20" onclick={goToPayment}>
                                 Registrar Nuevo Pago
+                            </button>
+                        {/if}
+
+                        {#if (reservation.balance || 0) < 0 && hasUpdateAccess}
+                            <button class="w-full admin-btn !py-4 mt-4 shadow-indigo-500/20 !bg-indigo-600 hover:!bg-indigo-700" onclick={handleRefund} disabled={refunding}>
+                                {refunding ? 'Procesando...' : 'Devolver Saldo a Favor'}
                             </button>
                         {/if}
                     </div>
@@ -310,11 +378,18 @@
                                 <div class="p-4 bg-slate-50 dark:bg-slate-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl flex justify-between items-center group hover:border-emerald-500/20 transition-all">
                                     <div>
                                         <p class="text-sm font-black text-emerald-600">${pay.amount}</p>
-                                        <p class="text-[9px] text-slate-500 font-bold uppercase mt-0.5 tracking-tighter">{pay.method} • {new Date(pay.created_at).toLocaleDateString()}</p>
+                                        <p class="text-[9px] text-slate-500 font-bold uppercase mt-0.5 tracking-tighter">{formatMethod(pay.method)} • {formatDateTime(pay.created_at)}</p>
                                     </div>
-                                    <span class="text-[8px] font-black uppercase px-2 py-0.5 bg-emerald-500/10 text-emerald-600 rounded">
-                                        {pay.status}
-                                    </span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[8px] font-black uppercase px-2 py-0.5 rounded {pay.status === 'completed' ? 'bg-emerald-500/10 text-emerald-600' : pay.status === 'verifying' ? 'bg-orange-500/10 text-orange-600' : pay.status === 'failed' ? 'bg-rose-500/10 text-rose-600' : 'bg-slate-500/10 text-slate-600'}">
+                                            {formatStatus(pay.status)}
+                                        </span>
+                                        {#if pay.status === 'verifying'}
+                                            <a href="/admin/pagos/{pay.id}" class="text-[9px] font-bold text-orange-600 hover:text-orange-700 bg-orange-100 dark:bg-orange-900/30 px-2 py-1 rounded-md border border-orange-200 dark:border-orange-800 transition-colors">
+                                                Validar
+                                            </a>
+                                        {/if}
+                                    </div>
                                 </div>
                             {/each}
                         {:else}
@@ -329,6 +404,14 @@
     {/if}
 </div>
 
-<style>
-    /* Estilos específicos si son necesarios */
-</style>
+<GenericConfirmModal
+	isOpen={isConfirmModalOpen}
+	title={modalConfig?.title || ''}
+	message={modalConfig?.message || ''}
+	onConfirm={async () => {
+		if (modalConfig) await modalConfig.onConfirm();
+		isConfirmModalOpen = false;
+	}}
+	onClose={() => (isConfirmModalOpen = false)}
+	loading={cancelling || refunding}
+/>

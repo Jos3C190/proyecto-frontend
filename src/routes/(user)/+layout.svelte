@@ -1,5 +1,6 @@
 <script lang="ts">
 	import PublicNavbar from '$lib/components/layout/PublicNavbar.svelte';
+	import PublicFooter from '$lib/components/layout/PublicFooter.svelte';
 	import { authStore } from '$lib/stores/auth.store';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
@@ -28,6 +29,8 @@
 		<main class="user-main">
 			{@render children()}
 		</main>
+
+		<PublicFooter />
 	</div>
 {:else}
 	<div class="user-loading" aria-live="polite"><div class="spinner"></div></div>

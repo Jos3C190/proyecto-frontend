@@ -1,10 +1,10 @@
 import { API_BASE } from '$lib/config/api';
-import type { 
-	ReservationCreate, 
-	ReservationRead, 
-	AdminReservationCreate, 
-	AdminReservationUpdate, 
-	AdminPaymentCreate 
+import type {
+	ReservationCreate,
+	ReservationRead,
+	AdminReservationCreate,
+	AdminReservationUpdate,
+	AdminPaymentCreate
 } from '$lib/types/reservation';
 import { getStoredAuth } from '$lib/services/auth.service';
 
@@ -162,4 +162,44 @@ export async function getUserWompiLink(id: number, redirectUrl: string): Promise
 	}
 	const data = await res.json();
 	return data.url;
+}
+
+export async function createPayment(id: number, data: { amount: number, method: string, receipt_type: string }): Promise<any> {
+	const res = await fetch(`${API_BASE}/payments/`, {
+		method: 'POST',
+		headers: getHeaders(),
+		body: JSON.stringify({
+			reservation_id: id,
+			...data
+		})
+	});
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({}));
+		throw new Error(err.detail ?? 'Error al procesar el pago');
+	}
+	return await res.json();
+}
+
+export async function refundReservation(id: number): Promise<any> {
+	const res = await fetch(`${API_BASE}/admin/reservations/${id}/refund`, {
+		method: 'POST',
+		headers: getHeaders()
+	});
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({}));
+		throw new Error(err.detail ?? 'Error al procesar el reembolso');
+	}
+	return await res.json();
+}
+
+export async function cancelPayment(paymentId: number): Promise<void> {
+	const res = await fetch(`${API_BASE}/payments/${paymentId}`, {
+		method: 'DELETE',
+		headers: getHeaders()
+	});
+
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({}));
+		throw new Error(err.detail ?? 'Error al cancelar el pago');
+	}
 }

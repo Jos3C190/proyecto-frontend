@@ -9,12 +9,14 @@
         getReservation
 	} from '$lib/services/reservation.service';
 	import { searchRooms } from '$lib/services/room.service';
-    import { fetchUsers } from '$lib/services/admin.service';
+    import { fetchUsers, updateUser } from '$lib/services/admin.service';
+	import FiscalDataForm from '$lib/components/ui/FiscalDataForm.svelte';
 	import type { ReservationRead, AdminReservationCreate, AdminPaymentCreate } from '$lib/types/reservation';
 	import type { RoomSearchResponse } from '$lib/types/room';
 	import { toast } from '$lib/stores/toast.svelte';
 	import { authStore } from '$lib/stores/auth.store';
 	import { hasPermission } from '$lib/types';
+	import { getElSalvadorDate } from '$lib/utils/date';
 	import '../../adminPage.css';
 
 	let createStep = $state<1 | 2>(1);
@@ -34,12 +36,14 @@
 		guests: 1
 	});
 
+
 	// Step 2 Form (Payment)
 	let paymentData = $state({
 		method: 'card',
 		receipt_type: 'final_consumer',
 		amount: 0
 	});
+    let fiscalData = $state<any>(null);
 
 	let pendingCreatedReservation = $state<ReservationRead | null>(null);
 	let availableRooms = $state<RoomSearchResponse[]>([]);
@@ -59,8 +63,7 @@
 		))
 	);
 
-	const todayDate = new Date();
-	const todayStr = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+	const todayStr = getElSalvadorDate();
 
 	// Estados Derivados para el Resumen
 	let nightsCount = $derived.by(() => {
@@ -152,6 +155,15 @@
 		if (!pendingCreatedReservation) return;
 		formLoading = true;
 		try {
+            // Si es crédito fiscal, actualizamos el cliente primero
+            if (paymentData.receipt_type === 'fiscal_credit' && fiscalData && pendingCreatedReservation.user_id) {
+                try {
+                    await updateUser(pendingCreatedReservation.user_id, fiscalData);
+                } catch (err: any) {
+                    console.error("Error al actualizar datos fiscales del cliente:", err);
+                }
+            }
+
 			if (paymentData.method === 'card') {
 				const redirectUrl = `${window.location.origin}/admin/reservaciones/${pendingCreatedReservation.id}/detalle`;
 				const url = await getAdminWompiLink(pendingCreatedReservation.id, redirectUrl);
@@ -461,62 +473,153 @@
                     </div>
                 </div>
             {:else}
-                <!-- Step 2: Payment (Full Width) -->
-                <div class="lg:col-span-12">
-                    <div class="bg-white dark:bg-slate-900 rounded-[32px] p-8 shadow-sm border border-slate-100 dark:border-slate-800 fade-in">
-                        <div class="bg-amber-500 p-8 rounded-[24px] text-white mb-8 shadow-xl shadow-amber-500/20">
-                            <p class="text-[10px] font-black uppercase tracking-[0.3em] opacity-80 mb-2">Resumen de Reservación</p>
-                            <div class="flex justify-between items-end">
-                                <div>
-                                    <h3 class="text-3xl font-black tracking-tight">{pendingCreatedReservation?.unique_id}</h3>
-                                    <p class="text-xs font-medium opacity-80 mt-1">Check-in: {pendingCreatedReservation?.check_in}</p>
+                <!-- Step 2: Payment (Split Layout like Step 1) -->
+                <div class="lg:col-span-8 space-y-8 fade-in">
+                    <div class="bg-white dark:bg-slate-900 rounded-[32px] p-8 shadow-sm border border-slate-100 dark:border-slate-800">
+                        <h2 class="text-xl font-black text-slate-900 dark:text-white tracking-tight mb-2">Liquidación de Folio</h2>
+                        <p class="text-xs text-slate-500 mb-8">Selecciona el método de pago e ingresa el monto para confirmar la garantía.</p>
+
+                        <form class="space-y-8">
+                            <!-- Monto -->
+                            <div class="admin-field group">
+                                <label class="group-focus-within:text-[#D4AF37] transition-colors">Monto a Pagar (USD)</label>
+                                <div class="relative">
+                                    <div class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</div>
+                                    <input id="p-amt" type="number" step="0.01" bind:value={paymentData.amount} class="!rounded-[24px] !bg-slate-50 dark:!bg-slate-950 !border-transparent transition-all pl-10 py-4 font-mono font-black text-3xl text-[#D4AF37] opacity-80 cursor-not-allowed" readonly />
                                 </div>
-                                <div class="text-right">
-                                    <p class="text-[10px] font-black uppercase mb-1">Costo Total</p>
-                                    <p class="text-3xl font-black">${pendingCreatedReservation?.total_cost}</p>
+                            </div>
+
+                            <!-- Método de Pago (Radio Cards) -->
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-4">Método de Pago</label>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="pay_method" value="card" bind:group={paymentData.method} class="peer sr-only" />
+                                        <div class="p-6 rounded-[24px] border-2 border-slate-100 dark:border-slate-800 peer-checked:border-[#D4AF37] peer-checked:bg-[#D4AF37]/5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all text-center group">
+                                            <svg class="w-8 h-8 mx-auto mb-3 text-slate-300 dark:text-slate-600 group-hover:text-[#D4AF37] peer-checked:text-[#D4AF37] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" stroke-width="1.5"/></svg>
+                                            <span class="block text-sm font-bold text-slate-700 dark:text-slate-200">Tarjeta</span>
+                                            <span class="block text-[9px] font-medium text-slate-400 mt-1 uppercase tracking-widest">Pasarela online</span>
+                                        </div>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="pay_method" value="cash" bind:group={paymentData.method} class="peer sr-only" />
+                                        <div class="p-6 rounded-[24px] border-2 border-slate-100 dark:border-slate-800 peer-checked:border-[#D4AF37] peer-checked:bg-[#D4AF37]/5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all text-center group">
+                                            <svg class="w-8 h-8 mx-auto mb-3 text-slate-300 dark:text-slate-600 group-hover:text-[#D4AF37] peer-checked:text-[#D4AF37] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" stroke-width="1.5"/></svg>
+                                            <span class="block text-sm font-bold text-slate-700 dark:text-slate-200">Efectivo</span>
+                                            <span class="block text-[9px] font-medium text-slate-400 mt-1 uppercase tracking-widest">Cobro directo</span>
+                                        </div>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="pay_method" value="transfer" bind:group={paymentData.method} class="peer sr-only" />
+                                        <div class="p-6 rounded-[24px] border-2 border-slate-100 dark:border-slate-800 peer-checked:border-[#D4AF37] peer-checked:bg-[#D4AF37]/5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all text-center group">
+                                            <svg class="w-8 h-8 mx-auto mb-3 text-slate-300 dark:text-slate-600 group-hover:text-[#D4AF37] peer-checked:text-[#D4AF37] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" stroke-width="1.5"/></svg>
+                                            <span class="block text-sm font-bold text-slate-700 dark:text-slate-200">Transferencia</span>
+                                            <span class="block text-[9px] font-medium text-slate-400 mt-1 uppercase tracking-widest">Transfer365-SWIFT / Banco</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Comprobante -->
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-4">Comprobante Fiscal</label>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <label class="cursor-pointer group">
+                                        <input type="radio" name="receipt" value="final_consumer" bind:group={paymentData.receipt_type} class="peer sr-only" />
+                                        <div class="flex items-center gap-4 p-5 rounded-[24px] border-2 border-slate-100 dark:border-slate-800 peer-checked:border-emerald-500 peer-checked:bg-emerald-50 dark:peer-checked:bg-emerald-500/10 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all">
+                                            <div class="w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 peer-checked:border-emerald-500 peer-checked:border-[6px] flex-shrink-0 transition-all"></div>
+                                            <div>
+                                                <span class="block text-sm font-bold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 transition-colors">Consumidor Final</span>
+                                                <span class="block text-[10px] text-slate-400 mt-0.5">Nota de venta estándar, sin desglose.</span>
+                                            </div>
+                                        </div>
+                                    </label>
+                                    <label class="cursor-pointer group">
+                                        <input type="radio" name="receipt" value="fiscal_credit" bind:group={paymentData.receipt_type} class="peer sr-only" />
+                                        <div class="flex items-center gap-4 p-5 rounded-[24px] border-2 border-slate-100 dark:border-slate-800 peer-checked:border-emerald-500 peer-checked:bg-emerald-50 dark:peer-checked:bg-emerald-500/10 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all">
+                                            <div class="w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 peer-checked:border-emerald-500 peer-checked:border-[6px] flex-shrink-0 transition-all"></div>
+                                            <div>
+                                                <span class="block text-sm font-bold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 transition-colors">Crédito Fiscal</span>
+                                                <span class="block text-[10px] text-slate-400 mt-0.5">Factura legal con desglose de IVA.</span>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {#if paymentData.receipt_type === 'fiscal_credit' && pendingCreatedReservation?.user}
+                                <div class="mt-8">
+                                    <FiscalDataForm 
+                                        profile={pendingCreatedReservation.user.profile || {}} 
+                                        onUpdate={(data) => fiscalData = data} 
+                                    />
+                                </div>
+                            {/if}
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Resumen Lateral Sticky (Step 2) -->
+                <div class="lg:col-span-4 sticky top-8 space-y-6 fade-in">
+                    <div class="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 p-8 shadow-2xl shadow-[#D4AF37]/5 overflow-hidden relative">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-[#D4AF37]/5 rounded-bl-[100px] -mr-8 -mt-8"></div>
+                        
+                        <h3 class="text-xs font-black uppercase tracking-[0.3em] text-slate-400 mb-8 flex items-center gap-3">
+                            <span class="w-2 h-2 rounded-full bg-[#D4AF37] animate-pulse"></span>
+                            Folio Generado
+                        </h3>
+
+                        <div class="space-y-6 relative">
+                            <!-- ID -->
+                            <div class="text-center bg-slate-50 dark:bg-slate-950 p-6 rounded-[24px]">
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Código de Reserva</p>
+                                <p class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{pendingCreatedReservation?.unique_id}</p>
+                            </div>
+
+                            <!-- Fechas -->
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Check-in</label>
+                                    <p class="text-[11px] font-bold text-slate-700 dark:text-slate-300">{pendingCreatedReservation?.check_in}</p>
+                                </div>
+                                <div>
+                                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Check-out</label>
+                                    <p class="text-[11px] font-bold text-slate-700 dark:text-slate-300">{pendingCreatedReservation?.check_out}</p>
+                                </div>
+                            </div>
+
+                            <div class="pt-6 border-t border-slate-100 dark:border-slate-800">
+                                <div class="flex justify-between items-end mb-8">
+                                    <p class="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Saldo Restante</p>
+                                    <p class="text-3xl font-black text-[#D4AF37] tracking-tighter">
+                                        ${pendingCreatedReservation?.total_cost}
+                                    </p>
+                                </div>
+
+                                <div class="space-y-3">
+                                    <button 
+                                        type="button" 
+                                        class="admin-btn w-full !py-4 shadow-2xl disabled:opacity-30 disabled:grayscale"
+                                        onclick={handleConfirmPayment}
+                                        disabled={formLoading || !paymentData.amount}
+                                    >
+                                        {#if formLoading}
+                                            <div class="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                                        {:else}
+                                            {paymentData.method === 'card' ? 'Generar Pasarela Wompi' : 'Liquidar e Ingresar'}
+                                        {/if}
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        class="admin-btn-secondary w-full !py-3 hover:!bg-slate-100 dark:hover:!bg-slate-800" 
+                                        onclick={() => goto('/admin/reservaciones')}
+                                        disabled={formLoading}
+                                    >
+                                        Pausar y Terminar Después
+                                    </button>
                                 </div>
                             </div>
                         </div>
-
-                        <form onsubmit={handleConfirmPayment} class="space-y-6">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div class="admin-field">
-                                    <label for="p-amt">Monto a Pagar ($)</label>
-                                    <input id="p-amt" type="number" step="0.01" bind:value={paymentData.amount} required />
-                                </div>
-                                <div class="admin-field">
-                                    <label for="p-method">Método de Pago</label>
-                                    <select id="p-method" bind:value={paymentData.method} required>
-                                        <option value="card">Tarjeta de Crédito/Débito (Pasarela)</option>
-                                        <option value="cash">Efectivo (Directo)</option>
-                                        <option value="transfer">Transferencia</option>
-                                    </select>
-                                </div>
-                                <div class="admin-field col-span-full">
-                                    <label for="p-receipt">Comprobante Sugerido</label>
-                                    <select id="p-receipt" bind:value={paymentData.receipt_type} required>
-                                        <option value="final_consumer">Ticket Consumidor Final</option>
-                                        <option value="fiscal_credit">Crédito Fiscal</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="p-6 bg-slate-50 dark:bg-slate-950/40 rounded-[24px] border border-slate-100 dark:border-slate-800">
-                                <div class="flex items-start gap-4">
-                                    <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 font-bold shrink-0">!</div>
-                                    <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
-                                        Si selecciona **Tarjeta**, se generará un enlace de pago y el cliente quedará pendiente hasta que la transacción sea aprobada. Si selecciona **Efectivo**, la reserva se confirmará inmediatamente.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div class="pt-8 flex justify-between items-center">
-                                <button type="button" class="admin-btn-secondary px-8 !py-3" onclick={() => goto('/admin/reservaciones')}>Terminar Después (Queda Pendiente)</button>
-                                <button type="submit" class="admin-btn px-12" disabled={formLoading}>
-                                    {formLoading ? 'Procesando...' : (paymentData.method === 'card' ? 'Generar Link de Pago' : 'Confirmar y Finalizar')}
-                                </button>
-                            </div>
-                        </form>
                     </div>
                 </div>
             {/if}

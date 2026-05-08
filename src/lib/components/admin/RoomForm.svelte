@@ -112,13 +112,13 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="admin-field group">
                         <label class="group-focus-within:text-amber-600 transition-colors">Número Identificador</label>
-                        <input type="text" bind:value={room.number} placeholder="Ej. Suite 101" class="!rounded-2xl !bg-slate-50 dark:!bg-slate-950 !border-transparent focus:!border-amber-500/30 focus:!ring-amber-500/10 transition-all" required />
+                        <input type="text" bind:value={room.number} placeholder="Ej. Suite 101" class="!rounded-2xl !bg-slate-50 dark:!bg-slate-800/50 !border-transparent focus:!border-amber-500/30 focus:!ring-amber-500/10 transition-all" required />
                     </div>
                     
                     <div class="admin-field group">
                         <label class="group-focus-within:text-amber-600 transition-colors">Categoría / Tipo</label>
                         <div class="flex gap-2">
-                            <select bind:value={room.type} class="w-full !rounded-2xl !bg-slate-50 dark:!bg-slate-950 !border-transparent focus:!border-amber-500/30 transition-all">
+                            <select bind:value={room.type} class="w-full !rounded-2xl !bg-slate-50 dark:!bg-slate-800/50 !border-transparent focus:!border-amber-500/30 transition-all">
                                 {#if roomTypes.length === 0}
                                     <option value="" disabled>Sin tipos configurados</option>
                                 {:else}
@@ -136,23 +136,23 @@
                     <div class="admin-field group">
                         <label class="group-focus-within:text-amber-600 transition-colors">Capacidad (Huéspedes)</label>
                         <div class="relative">
-                            <input type="number" bind:value={room.capacity} class="!rounded-2xl !bg-slate-50 dark:!bg-slate-950 !border-transparent focus:!border-amber-500/30 transition-all pl-10" required min="1" />
+                            <input type="number" bind:value={room.capacity} class="!rounded-2xl !bg-slate-50 dark:!bg-slate-800/50 !border-transparent focus:!border-amber-500/30 transition-all pl-10" required min="1" />
                             
                         </div>
                     </div>
 
                     <div class="admin-field group">
-                        <label class="group-focus-within:text-amber-600 transition-colors">Precio Base por Noche</label>
+                        <label class="group-focus-within:text-amber-600 transition-colors">Precio Base</label>
                         <div class="relative">
                             
-                            <input type="number" step="0.01" bind:value={room.base_price} class="!rounded-2xl !bg-slate-50 dark:!bg-slate-950 !border-transparent focus:!border-amber-500/30 transition-all pl-10 font-mono font-bold text-lg" required min="1" />
+                            <input type="number" step="0.01" bind:value={room.base_price} class="!rounded-2xl !bg-slate-50 dark:!bg-slate-800/50 !border-transparent focus:!border-amber-500/30 transition-all pl-10 font-mono font-bold text-lg" required min="1" />
                         </div>
                     </div>
                 </div>
 
                 <div class="admin-field mt-8">
                     <label>Descripción y Atractivos</label>
-                    <textarea bind:value={room.description} rows="5" placeholder="Cuéntales a tus huéspedes qué hace única a esta habitación..." class="!rounded-[24px] !bg-slate-50 dark:!bg-slate-950 !border-transparent focus:!border-amber-500/30 transition-all p-5"></textarea>
+                    <textarea bind:value={room.description} rows="5" placeholder="Cuéntales a tus huéspedes qué hace única a esta habitación..." class="!rounded-[24px] !bg-slate-50 dark:!bg-slate-800/50 !border-transparent focus:!border-amber-500/30 transition-all p-5"></textarea>
                 </div>
 
                 <div class="mt-8 flex items-center justify-between p-5 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/10 dark:border-amber-500/20 rounded-[28px] transition-all">
@@ -208,11 +208,11 @@
                                         <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div class="admin-field">
                                                 <label class="!text-[10px] !text-slate-400">Desde</label>
-                                                <input type="date" class="!rounded-xl !bg-white dark:!bg-slate-800 !border-slate-200 dark:!border-slate-700 !py-2 !text-xs" bind:value={sp.start_date} required/>
+                                                <input type="date" class="!rounded-xl !bg-slate-50 dark:!bg-slate-800/50 !border-slate-200 dark:!border-slate-700 !py-2 !text-xs" bind:value={sp.start_date} required/>
                                             </div>
                                             <div class="admin-field">
                                                 <label class="!text-[10px] !text-slate-400">Hasta</label>
-                                                <input type="date" class="!rounded-xl !bg-white dark:!bg-slate-800 !border-slate-200 dark:!border-slate-700 !py-2 !text-xs" bind:value={sp.end_date} required/>
+                                                <input type="date" class="!rounded-xl !bg-slate-50 dark:!bg-slate-800/50 !border-slate-200 dark:!border-slate-700 !py-2 !text-xs" bind:value={sp.end_date} required/>
                                             </div>
                                         </div>
                                         <div class="w-full md:w-[140px] px-6 border-l border-slate-200 dark:border-slate-800 flex flex-col justify-center">
@@ -269,7 +269,7 @@
                     </div>
 
                     <div class="relative">
-                        <input type="url" placeholder="Añadir imagen por URL..." class="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-2xl px-5 py-3.5 text-xs text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/20 placeholder-slate-400 transition-all pr-24 shadow-inner" bind:value={tempImageUrl} />
+                        <input type="url" placeholder="Añadir imagen por URL..." class="w-full !bg-slate-50 dark:!bg-slate-800/50 border-none rounded-2xl px-5 py-3.5 text-xs text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/20 placeholder-slate-400 transition-all pr-24 shadow-inner" bind:value={tempImageUrl} />
                         <button type="button" class="absolute right-2 top-2 bottom-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-30" onclick={addImageUrl} disabled={!tempImageUrl}>Pegar</button>
                     </div>
 

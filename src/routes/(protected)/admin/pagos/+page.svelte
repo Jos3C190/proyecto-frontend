@@ -6,7 +6,25 @@
 	import { hasPermission } from '$lib/types';
 	import { goto } from '$app/navigation';
 	import { toast } from '$lib/stores/toast.svelte';
+	import { createPersistence } from '$lib/utils/persistence';
 	import '../adminPage.css';
+
+	const persistence = createPersistence({
+		key: 'admin_payments',
+		defaultValues: {
+			page: 1,
+			pageSize: 10,
+			searchQuery: '',
+			filters: {
+				start_date: '',
+				end_date: '',
+				method: '',
+				status: ''
+			}
+		}
+	});
+
+	const initialState = persistence.getInitialState();
 
 	let payments = $state<PaymentRead[]>([]);
 	let loading = $state(true);
@@ -15,18 +33,22 @@
 	let hasAccess = $derived(hasPermission($authStore.user, 'payments', 'read'));
 
 	// Filters
-	let filters = $state({
-		start_date: '',
-		end_date: '',
-		method: '',
-		status: 'completed'
-	});
-	let searchQuery = $state('');
+	let filters = $state(initialState.filters);
+	let searchQuery = $state(initialState.searchQuery);
 
-	// Details Modal
-	let showDetails = $state(false);
-	let viewingPayment = $state<PaymentRead | null>(null);
-	let loadingDetails = $state(false);
+	// Pagination
+	let page = $state(initialState.page);
+	let pageSize = $state(initialState.pageSize);
+
+	// Sync state to persistence
+	$effect(() => {
+		persistence.saveState({
+			page,
+			pageSize,
+			searchQuery,
+			filters
+		});
+	});
 
 	let filteredPayments = $derived(payments.filter(p => {
 		if (!searchQuery) return true;
@@ -36,13 +58,12 @@
 			(p.reservation?.unique_id && p.reservation.unique_id.toLowerCase().includes(s)) ||
 			(p.reservation?.user?.profile?.first_name && p.reservation.user.profile.first_name.toLowerCase().includes(s)) ||
 			(p.reservation?.user?.profile?.last_name && p.reservation.user.profile.last_name.toLowerCase().includes(s)) ||
+			(p.reservation?.user?.profile?.business_name && p.reservation.user.profile.business_name.toLowerCase().includes(s)) ||
 			(p.reservation?.user?.email && p.reservation.user.email.toLowerCase().includes(s))
 		);
 	}));
 
 	// Pagination
-	let page = $state(1);
-	let pageSize = $state(10);
 	let paginatedPayments = $derived(filteredPayments.slice((page - 1) * pageSize, page * pageSize));
 	let totalPages = $derived(Math.ceil(filteredPayments.length / pageSize) || 1);
 	let hasNextPage = $derived(page < totalPages);
@@ -68,7 +89,7 @@
 		return { total, count, byMethod };
 	});
 
-	async function loadPayments() {
+	async function loadPayments(resetPage = true) {
 		loading = true;
 		try {
 			payments = await fetchPayments({
@@ -78,25 +99,12 @@
 				status: filters.status || undefined
 			});
 			error = null;
-			page = 1; // Reset memory page
+			if (resetPage) page = 1;
 		} catch (err: any) {
 			error = err.message;
 			toast.error('Error al cargar pagos: ' + err.message);
 		} finally {
 			loading = false;
-		}
-	}
-
-	async function openDetails(paymentId: number) {
-		loadingDetails = true;
-		showDetails = true;
-		try {
-			viewingPayment = await fetchPaymentDetail(paymentId);
-		} catch (err: any) {
-			toast.error('Error al cargar detalle: ' + err.message);
-			showDetails = false;
-		} finally {
-			loadingDetails = false;
 		}
 	}
 
@@ -106,22 +114,40 @@
 	}
 
 	function resetFilters() {
-		filters = { start_date: '', end_date: '', method: '', status: 'completed' };
+		filters = { start_date: '', end_date: '', method: '', status: '' };
 		searchQuery = '';
 		loadPayments();
 	}
 
-	onMount(() => {
+	onMount(async () => {
 		if (!hasPermission($authStore.user, 'payments', 'read')) {
 			goto('/dashboard');
 			return;
 		}
-		loadPayments();
+		// Cargamos los datos pero respetando la página persistida si ya la tenemos
+		// El loadPayments actual hace reset a 1, así que lo modificaré
+		await loadPayments(false);
 	});
 
 	function formatMethod(m: string) {
-		const map: any = { card: 'Tarjeta', cash: 'Efectivo', transfer: 'Transferencia' };
+		const map: any = { card: 'Tarjeta', cash: 'Efectivo', transfer: 'Transferencia', refund: 'Reembolso' };
 		return map[m] || m;
+	}
+
+	function formatDateTime(dateStr: string) {
+		if (!dateStr) return '---';
+		const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/);
+		if (match) {
+			const [_, y, m, d, hh, mm, ss] = match;
+			const hour = parseInt(hh);
+			const ampm = hour >= 12 ? 'p. m.' : 'a. m.';
+			const h12 = hour % 12 || 12;
+			return {
+				date: `${parseInt(d)}/${parseInt(m)}/${y}`,
+				time: `${h12}:${mm}:${ss} ${ampm}`
+			};
+		}
+		return { date: dateStr, time: '' };
 	}
 </script>
 
@@ -137,33 +163,49 @@
 			<h1 class="admin-title">Pagos</h1>
 			<p class="admin-desc">Control total de ingresos, cobros y comprobantes fiscales.</p>
 		</div>
-		<div class="admin-toolbar flex-wrap">
-			<form onsubmit={handleFilter} class="flex flex-wrap items-center gap-2 w-full">
-				<div class="relative flex-1 min-w-[200px] h-[34px]">
-					<svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-					<input type="text" placeholder="Buscar ID, reserva, cliente..." bind:value={searchQuery} oninput={() => page = 1} class="w-full pl-9 pr-4 py-1.5 h-full text-xs border border-slate-200 rounded-lg focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 outline-none bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 transition-all font-['Inter']" />
+		<div class="admin-toolbar">
+			<div class="admin-search-wrapper">
+				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+				<input type="text" placeholder="Buscar ID, reserva, cliente..." bind:value={searchQuery} oninput={() => page = 1} />
+			</div>
+
+			<div class="flex flex-wrap xl:flex-nowrap items-center gap-3">
+				<div class="admin-filters !flex-nowrap">
+					<div class="admin-input-group !gap-1.5 px-3">
+						<span>IN</span>
+						<input type="date" bind:value={filters.start_date} onchange={loadPayments} class="!w-[85px] text-xs" />
+						<span class="text-slate-300 dark:text-slate-600 font-light mx-1">/</span>
+						<span>OUT</span>
+						<input type="date" bind:value={filters.end_date} onchange={loadPayments} class="!w-[85px] text-xs" />
+						
+						{#if filters.start_date || filters.end_date}
+							<button type="button" class="ml-1 text-slate-400 hover:text-red-500 transition-colors" onclick={resetFilters} title="Limpiar fechas">
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+							</button>
+						{/if}
+					</div>
+
+					<select bind:value={filters.method} onchange={loadPayments} class="!w-[130px]">
+						<option value="">Todo Método</option>
+						<option value="card">Tarjeta</option>
+						<option value="cash">Efectivo</option>
+						<option value="transfer">Transferencia</option>
+					</select>
+
+					<select bind:value={filters.status} onchange={loadPayments} class="!w-[130px]">
+						<option value="">Todo Estado</option>
+						<option value="completed">Completado</option>
+						<option value="verifying">Verificando</option>
+						<option value="failed">Rechazado/Fallido</option>
+					</select>
 				</div>
-				<div class="flex items-center gap-2 border border-slate-200 rounded-lg px-2 py-1.5 focus-within:border-[#D4AF37] focus-within:ring-2 focus-within:ring-[#D4AF37]/20 bg-white dark:bg-slate-800 dark:border-slate-700 transition-all font-['Inter'] h-[34px]">
-					<span class="text-slate-400 text-[10px] font-bold uppercase ml-1">Desde</span>
-					<input type="date" bind:value={filters.start_date} class="border-none bg-transparent outline-none text-xs text-slate-700 dark:text-slate-200 p-0" />
-				</div>
-				<div class="flex items-center gap-2 border border-slate-200 rounded-lg px-2 py-1.5 focus-within:border-[#D4AF37] focus-within:ring-2 focus-within:ring-[#D4AF37]/20 bg-white dark:bg-slate-800 dark:border-slate-700 transition-all font-['Inter']">
-					<span class="text-slate-400 text-[10px] font-bold uppercase ml-1">Hasta</span>
-					<input type="date" bind:value={filters.end_date} class="border-none bg-transparent outline-none text-xs text-slate-700 dark:text-slate-200 p-0" />
-				</div>
-				<select bind:value={filters.method} class="text-xs h-[34px] border border-slate-200 rounded-lg px-3 bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 transition-all font-['Inter'] outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 cursor-pointer">
-					<option value="">Todo Método</option>
-					<option value="card">Tarjeta</option>
-					<option value="cash">Efectivo</option>
-					<option value="transfer">Transferencia</option>
-				</select>
-				<button type="submit" class="action-icon-btn h-[34px] w-[34px] bg-slate-100 dark:bg-slate-800 hover:bg-[#D4AF37] hover:text-white" title="Filtrar">
-					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+
+				<div class="hidden xl:block w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+				<button type="button" class="admin-btn !px-6" onclick={loadPayments} title="Filtrar">
+					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+					<span>FILTRAR</span>
 				</button>
-				<button type="button" class="action-icon-btn h-[34px] w-[34px] hover:bg-slate-200 dark:hover:bg-slate-700" onclick={resetFilters} title="Limpiar">
-					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-				</button>
-			</form>
+			</div>
 		</div>
 	</div>
 
@@ -251,12 +293,13 @@
 					</thead>
 					<tbody>
 						{#each paginatedPayments as p}
+							{@const dt = formatDateTime(p.created_at)}
 							<tr>
 								<td class="text-xs font-mono text-slate-400">#{p.id}</td>
 								<td>
 									<div class="flex flex-col">
-										<span class="font-medium text-slate-700 dark:text-slate-300">{new Date(p.created_at).toLocaleDateString()}</span>
-										<span class="text-[10px] text-slate-400">{new Date(p.created_at).toLocaleTimeString()}</span>
+										<span class="font-medium text-slate-700 dark:text-slate-300">{dt.date}</span>
+										<span class="text-[10px] text-slate-400">{dt.time}</span>
 									</div>
 								</td>
 								<td>
@@ -272,7 +315,13 @@
 								<td>
 									{#if p.reservation?.user}
 										<div class="flex flex-col">
-											<span class="text-sm">{p.reservation.user.profile?.first_name} {p.reservation.user.profile?.last_name}</span>
+											<span class="text-sm">
+												{#if p.reservation.user.profile?.person_type === 'Juridica'}
+													{p.reservation.user.profile.business_name || p.reservation.user.profile.first_name}
+												{:else}
+													{p.reservation.user.profile?.first_name} {p.reservation.user.profile?.last_name === 'N/A' ? '' : p.reservation.user.profile?.last_name || ''}
+												{/if}
+											</span>
 											<span class="text-[10px] text-slate-400">{p.reservation.user.email}</span>
 										</div>
 									{:else}
@@ -281,17 +330,20 @@
 								</td>
 								<td><span class="admin-badge">{formatMethod(p.method)}</span></td>
 								<td>
-									<span class={p.status === 'completed' ? 'admin-badge' : 'admin-badge-inactive'}>
+									<span class={p.status === 'completed' ? 'admin-badge' : p.status === 'verifying' ? 'admin-badge !bg-orange-500/20 !text-orange-700 !border-orange-500/30 dark:!bg-orange-900/30 dark:!text-orange-400' : 'admin-badge-inactive'}>
 										{p.status}
 									</span>
 								</td>
-								<td><strong class="text-slate-900 dark:text-amber-500 font-black text-base">${p.amount}</strong></td>
+								<td><strong class="text-slate-900 dark:text-white text-base">${p.amount}</strong></td>
 								<td>
 									<div class="flex items-center gap-1">
-										{#if false}
-										<button class="action-icon-btn" onclick={() => openDetails(p.id)} title="Ver Recibo">
+										<button class="action-icon-btn" onclick={() => goto(`/admin/pagos/${p.id}`)} title="Ver Detalles">
 											<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
 										</button>
+										{#if p.status === 'completed' && p.method !== 'refund'}
+											<button class="action-icon-btn !text-amber-600 hover:!bg-amber-50 dark:hover:!bg-amber-900/20" onclick={() => goto(`/admin/pagos/${p.id}/dte`)} title="Ver DTE">
+												<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+											</button>
 										{/if}
 									</div>
 								</td>
@@ -329,99 +381,4 @@
 	</section>
 </div>
 
-<!-- Details Modal -->
-{#if showDetails}
-	<div class="admin-modal-overlay flex items-center justify-center p-4" role="dialog" aria-modal="true" onclick={() => showDetails = false}>
-		<div class="admin-modal max-w-md w-full" onclick={(e) => e.stopPropagation()} role="document">
-			{#if loadingDetails}
-				<p class="p-12 text-center text-slate-500">Cargando recibo fiscal...</p>
-			{:else if viewingPayment}
-				<div class="receipt bg-white dark:bg-slate-900 p-8 rounded-lg shadow-inner border border-slate-200 dark:border-slate-800 relative overflow-hidden">
-					<!-- Receipt Header -->
-					<div class="text-center mb-6">
-						<h2 class="text-2xl font-black text-slate-800 dark:text-white tracking-widest uppercase">AFE RESORT</h2>
-						<p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Comprobante Fiscal Digital</p>
-						<div class="w-12 h-1 bg-amber-500 mx-auto mt-4"></div>
-					</div>
-
-					<!-- Receipt Data -->
-					<div class="space-y-4 font-mono text-xs text-slate-600 dark:text-slate-400">
-						<div class="flex justify-between border-b border-dashed border-slate-200 dark:border-slate-800 pb-2">
-							<span>TRANSACCIÓN:</span>
-							<strong class="text-slate-900 dark:text-slate-200">#PAY-{viewingPayment.id}</strong>
-						</div>
-						<div class="flex justify-between border-b border-dashed border-slate-200 dark:border-slate-800 pb-2">
-							<span>FECHA:</span>
-							<span class="text-slate-900 dark:text-slate-200">{new Date(viewingPayment.created_at).toLocaleString()}</span>
-						</div>
-						<div class="flex justify-between border-b border-dashed border-slate-200 dark:border-slate-800 pb-2">
-							<span>CLIENTE:</span>
-							<span class="text-slate-900 dark:text-slate-200 uppercase">{viewingPayment.receipt_data?.customer || 'N/A'}</span>
-						</div>
-						<div class="flex justify-between border-b border-dashed border-slate-200 dark:border-slate-800 pb-2">
-							<span>TIPO RECIBO:</span>
-							<span class="text-slate-900 dark:text-slate-200 uppercase">{viewingPayment.receipt_type?.replace('_', ' ') || 'CONSUMIDOR FINAL'}</span>
-						</div>
-						
-						<div class="py-4 space-y-2">
-							<p class="text-center font-bold text-slate-800 dark:text-slate-300">DETALLE DE ESTANCIA</p>
-							<div class="bg-slate-50 dark:bg-slate-800/50 p-3 rounded space-y-1">
-								<p class="flex justify-between"><span>Habitación:</span> <span>#{viewingPayment.receipt_data?.room_number}</span></p>
-								<p class="flex justify-between"><span>Entrada:</span> <span>{viewingPayment.receipt_data?.check_in}</span></p>
-								<p class="flex justify-between"><span>Salida:</span> <span>{viewingPayment.receipt_data?.check_out}</span></p>
-								<p class="flex justify-between"><span>Ref Reserva:</span> <span>{viewingPayment.receipt_data?.reservation_id}</span></p>
-							</div>
-						</div>
-
-						<div class="pt-4 border-t-2 border-slate-900 dark:border-slate-700 space-y-2">
-							<div class="flex justify-between text-base">
-								<span class="font-black text-slate-900 dark:text-white">TOTAL CANCELADO:</span>
-								<strong class="text-amber-600 dark:text-amber-500 font-black">${viewingPayment.amount}</strong>
-							</div>
-							<div class="flex justify-between text-[10px]">
-								<span>MÉTODO:</span>
-								<span class="uppercase">{formatMethod(viewingPayment.method)}</span>
-							</div>
-						</div>
-					</div>
-
-					<!-- Footer -->
-					<div class="mt-8 text-center text-[9px] text-slate-400 space-y-1">
-						<p>Este documento es una representación impresa de un CFDI.</p>
-					</div>
-					
-					<!-- Decorative corner -->
-					<div class="absolute -top-6 -right-6 w-12 h-12 bg-amber-500 rotate-45"></div>
-				</div>
-
-				<div class="admin-modal-actions mt-6">
-					<button type="button" class="admin-btn w-full" onclick={() => window.print()}>Imprimir Comprobante</button>
-					<button type="button" class="admin-btn-secondary w-full" onclick={() => showDetails = false}>Cerrar</button>
-				</div>
-			{/if}
-		</div>
-	</div>
-{/if}
-
-<style>
-	.receipt {
-		font-family: 'Courier New', Courier, monospace;
-	}
-	@media print {
-		:global(body *) {
-			visibility: hidden;
-		}
-		.receipt, .receipt * {
-			visibility: visible;
-		}
-		.receipt {
-			position: absolute;
-			left: 0;
-			top: 0;
-			width: 100%;
-			border: none !important;
-			box-shadow: none !important;
-		}
-	}
-</style>
 {/if}

@@ -27,6 +27,13 @@ export interface UserCreateAdmin {
 	department?: string | null;
 	municipality?: string | null;
 	address_complement?: string | null;
+	person_type?: string | null;
+	document_type?: string | null;
+	document_number?: string | null;
+	nrc?: string | null;
+	nit?: string | null;
+	economic_activity?: string | null;
+	taxpayer_type?: string | null;
 }
 
 export interface UserUpdateAdmin {
@@ -41,6 +48,13 @@ export interface UserUpdateAdmin {
 	department?: string | null;
 	municipality?: string | null;
 	address_complement?: string | null;
+	person_type?: string | null;
+	document_type?: string | null;
+	document_number?: string | null;
+	nrc?: string | null;
+	nit?: string | null;
+	business_name?: string | null;
+	economic_activity?: string | null;
 }
 
 export interface RoleCreate {
@@ -95,6 +109,14 @@ export async function fetchUsers(params?: { limit?: number; offset?: number }): 
 	return res.json();
 }
 
+export async function fetchUserDetail(userId: number): Promise<User> {
+	const res = await fetch(`${API_BASE}/admin/users/${userId}`, {
+		headers: getAuthHeaders()
+	});
+	if (!res.ok) throw new Error(await res.json().then((d) => d.detail ?? 'Error al cargar usuario').catch(() => 'Error'));
+	return res.json();
+}
+
 export async function createUser(data: UserCreateAdmin): Promise<User> {
 	const res = await fetch(`${API_BASE}/admin/users`, {
 		method: 'POST',
@@ -119,6 +141,59 @@ export async function updateUser(userId: number, data: UserUpdateAdmin): Promise
 
 export async function deactivateUser(userId: number): Promise<void> {
 	const res = await fetch(`${API_BASE}/admin/users/${userId}`, {
+		method: 'DELETE',
+		headers: getAuthHeaders()
+	});
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({}));
+		throw new Error(err.detail ?? 'Error');
+	}
+}
+
+// ----- Clientes -----
+
+export async function fetchClients(params?: { limit?: number; offset?: number }): Promise<User[]> {
+	const q = new URLSearchParams();
+	if (params?.limit != null) q.set('limit', String(params.limit));
+	if (params?.offset != null) q.set('offset', String(params.offset));
+	const url = `${API_BASE}/admin/clients${q.toString() ? '?' + q.toString() : ''}`;
+	const res = await fetch(url, { headers: getAuthHeaders() });
+	if (!res.ok) throw new Error(await res.json().then((d) => d.detail ?? 'Error').catch(() => 'Error'));
+	return res.json();
+}
+
+export async function fetchClientDetail(clientId: number): Promise<User> {
+	const res = await fetch(`${API_BASE}/admin/clients/${clientId}`, {
+		headers: getAuthHeaders()
+	});
+	if (!res.ok) throw new Error(await res.json().then((d) => d.detail ?? 'Error al cargar cliente').catch(() => 'Error'));
+	return res.json();
+}
+
+export async function createClient(data: UserCreateAdmin): Promise<User> {
+	const res = await fetch(`${API_BASE}/admin/clients`, {
+		method: 'POST',
+		headers: getAuthHeaders(),
+		body: JSON.stringify(data)
+	});
+	const body = await res.json().catch(() => ({}));
+	if (!res.ok) throw new Error(Array.isArray(body.detail) ? body.detail.map((d: { msg?: string }) => d.msg).join(', ') : body.detail ?? 'Error');
+	return body;
+}
+
+export async function updateClient(clientId: number, data: UserUpdateAdmin): Promise<User> {
+	const res = await fetch(`${API_BASE}/admin/clients/${clientId}`, {
+		method: 'PATCH',
+		headers: getAuthHeaders(),
+		body: JSON.stringify(data)
+	});
+	const body = await res.json().catch(() => ({}));
+	if (!res.ok) throw new Error(body.detail ?? 'Error');
+	return body;
+}
+
+export async function deactivateClient(clientId: number): Promise<void> {
+	const res = await fetch(`${API_BASE}/admin/clients/${clientId}`, {
 		method: 'DELETE',
 		headers: getAuthHeaders()
 	});
@@ -281,4 +356,31 @@ export async function fetchPaymentDetail(paymentId: number): Promise<PaymentRead
 	});
 	if (!res.ok) throw new Error('Error al cargar detalle del pago');
 	return res.json();
+}
+
+/**
+ * Aprobar o rechazar un pago en verificación.
+ */
+export async function verifyPayment(paymentId: number, action: 'approve' | 'reject', reason?: string): Promise<PaymentRead> {
+	const res = await fetch(`${API_BASE}/admin/payments/${paymentId}/verify`, {
+		method: 'POST',
+		headers: getAuthHeaders(),
+		body: JSON.stringify({ action, reason })
+	});
+	const body = await res.json().catch(() => ({}));
+	if (!res.ok) throw new Error(body.detail ?? 'Error al verificar el pago');
+	return body;
+}
+
+/**
+ * Reenviar el correo de confirmación de pago (con DTE).
+ */
+export async function resendPaymentEmail(paymentId: number): Promise<{ message: string }> {
+	const res = await fetch(`${API_BASE}/admin/payments/${paymentId}/resend-email`, {
+		method: 'POST',
+		headers: getAuthHeaders()
+	});
+	const body = await res.json().catch(() => ({}));
+	if (!res.ok) throw new Error(body.detail ?? 'Error al reenviar el correo');
+	return body;
 }

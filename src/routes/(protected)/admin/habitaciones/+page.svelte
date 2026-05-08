@@ -2,19 +2,58 @@
 	import { getAdminRooms, deleteRoom, getAdminRoomTypes, searchRooms } from '$lib/services/room.service';
 	import type { RoomRead, RoomTypeRead } from '$lib/types/room';
 	import { onMount } from 'svelte';
+	import { getElSalvadorDate, getElSalvadorTomorrow } from '$lib/utils/date';
 	import { goto } from '$app/navigation';
 	import { authStore } from '$lib/stores/auth.store';
 	import { hasPermission } from '$lib/types';
 	import { toast } from '$lib/stores/toast.svelte';
 	import RoomTypesModal from '$lib/components/admin/RoomTypesModal.svelte';
 	import ImageLightboxModal from '$lib/components/admin/ImageLightboxModal.svelte';
+	import GenericConfirmModal from '$lib/components/ui/GenericConfirmModal.svelte';
+	import { createPersistence } from '$lib/utils/persistence';
 	import '../adminPage.css';
+
+	const persistence = createPersistence({
+		key: 'admin_rooms',
+		defaultValues: {
+			page: 1,
+			pageSize: 10,
+			searchQuery: '',
+			selectedType: '',
+			availCheckIn: '',
+			availCheckOut: ''
+		}
+	});
+
+	const initialState = persistence.getInitialState();
 
 	let rooms = $state<RoomRead[]>([]);
 	let roomTypes = $state<RoomTypeRead[]>([]);
 	let loading = $state(true);
+	let isDeleteModalOpen = $state(false);
+	let roomIdToDelete = $state<number | null>(null);
+	let actionLoading = $state(false);
 	let error = $state<string | null>(null);
 	
+	let page = $state(initialState.page);
+	let pageSize = $state(initialState.pageSize);
+	let searchQuery = $state(initialState.searchQuery);
+	let selectedType = $state(initialState.selectedType);
+	let availCheckIn = $state(initialState.availCheckIn);
+	let availCheckOut = $state(initialState.availCheckOut);
+
+	// Sync state to persistence
+	$effect(() => {
+		persistence.saveState({
+			page,
+			pageSize,
+			searchQuery,
+			selectedType,
+			availCheckIn,
+			availCheckOut
+		});
+	});
+
 	let hasAccess = $derived(hasPermission($authStore.user, 'rooms', 'read'));
 
 	let showImageModal = $state(false);
@@ -22,12 +61,6 @@
 	let currentImageIndex = $state(0);
 	let viewingRoom = $state<RoomRead | null>(null);
 
-	// Filters
-	let searchQuery = $state('');
-	let selectedType = $state('');
-
-	let availCheckIn = $state('');
-	let availCheckOut = $state('');
 	let isFilteringAvail = $state(false);
 	let availableRoomsIds = $state<number[] | null>(null);
 
@@ -73,8 +106,6 @@
 	}
 
 	// Pagination
-	let page = $state(1);
-	let pageSize = $state(10);
 	let paginatedRooms = $derived(filteredRooms.slice((page - 1) * pageSize, page * pageSize));
 	let totalPages = $derived(Math.ceil(filteredRooms.length / pageSize) || 1);
 	let hasNextPage = $derived(page < totalPages);
@@ -98,7 +129,6 @@
 			]);
 			rooms = roomsData;
 			roomTypes = typesData;
-			page = 1; // Reset to page 1 on reload
 
 			// Verificar disponibilidad de hoy automáticamente
 			checkTodayAvailability();
@@ -111,8 +141,8 @@
 
 	let availableTodayIds = $state<number[]>([]);
 	async function checkTodayAvailability() {
-		const today = new Date().toISOString().split('T')[0];
-		const tomorrow = new Date(new Date().setDate(new Date().getDate() + 1)).toISOString().split('T')[0];
+		const today = getElSalvadorDate();
+		const tomorrow = getElSalvadorTomorrow();
 		try {
 			const results = await searchRooms(today, tomorrow, 1);
 			availableTodayIds = results.map(res => res.room.id);
@@ -122,7 +152,7 @@
 	}
 
 	function getTodayPrice(room: RoomRead) {
-		const today = new Date().toISOString().split('T')[0];
+		const today = getElSalvadorDate();
 		let multiplier = 1;
 		
 		// Encontrar si hay una temporada activa para hoy
@@ -162,13 +192,22 @@
 	}
 
 	async function handleDelete(id: number) {
-		if (!confirm('¿Seguro de eliminar esta habitación?')) return;
+		roomIdToDelete = id;
+		isDeleteModalOpen = true;
+	}
+
+	async function confirmDelete() {
+		if (roomIdToDelete === null) return;
+		actionLoading = true;
 		try {
-			await deleteRoom(id);
+			await deleteRoom(roomIdToDelete);
 			toast.success('Habitación eliminada correctamente');
+			isDeleteModalOpen = false;
 			await loadRooms();
 		} catch (err: any) {
 			toast.error(err.message);
+		} finally {
+			actionLoading = false;
 		}
 	}
 
@@ -190,39 +229,46 @@
 			<h1 class="admin-title">Habitaciones</h1>
 			<p class="admin-desc">Gestiona el catálogo de habitaciones y sus precios.</p>
 		</div>
-		<div class="admin-toolbar flex-wrap">
-			<div class="flex flex-1 gap-3 items-center min-w-[250px]">
-				<div class="relative flex-1">
-					<svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-					<input type="text" placeholder="Buscar por número o ref..." bind:value={searchQuery} oninput={() => page = 1} class="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 outline-none bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 transition-all font-['Inter']" />
+		<div class="admin-toolbar">
+			<div class="admin-search-wrapper">
+				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+				<input type="text" placeholder="Buscar por número o ref..." bind:value={searchQuery} oninput={() => page = 1} />
+			</div>
+
+			<div class="flex flex-wrap xl:flex-nowrap items-center gap-3">
+				<div class="admin-filters !flex-nowrap">
+					<div class="admin-input-group !gap-1.5 px-3">
+						<span>IN</span>
+						<input type="date" bind:value={availCheckIn} onchange={filterAvailability} class="!w-[85px] text-xs" />
+						<span class="text-slate-300 dark:text-slate-600 font-light mx-1">/</span>
+						<span>OUT</span>
+						<input type="date" bind:value={availCheckOut} onchange={filterAvailability} class="!w-[85px] text-xs" />
+						
+						{#if availableRoomsIds !== null || isFilteringAvail}
+							<button type="button" class="ml-1 text-slate-400 hover:text-red-500 transition-colors" onclick={clearDateFilter} title="Limpiar filtro de fechas" disabled={isFilteringAvail}>
+								{#if isFilteringAvail}
+									<svg class="animate-spin" width="14" height="14" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+								{:else}
+									<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+								{/if}
+							</button>
+						{/if}
+					</div>
+
+					<select bind:value={selectedType} onchange={() => page = 1} class="!w-[130px]">
+						<option value="">Cualquier tipo</option>
+						{#each roomTypes as t}
+							<option value={t.name}>{t.name}</option>
+						{/each}
+					</select>
 				</div>
-				<select bind:value={selectedType} onchange={() => page = 1} class="text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 outline-none bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 transition-all font-['Inter']">
-					<option value="">Todos los tipos</option>
-					{#each roomTypes as t}
-						<option value={t.name}>{t.name}</option>
-					{/each}
-				</select>
-			</div>
 
-			<div class="flex items-center gap-2 border border-slate-200 rounded-lg px-2 py-1.5 focus-within:border-[#D4AF37] focus-within:ring-2 focus-within:ring-[#D4AF37]/20 bg-white dark:bg-slate-800 dark:border-slate-700 transition-all">
-				<span class="text-slate-400 text-[10px] font-bold uppercase ml-1">Libre (In)</span>
-				<input type="date" bind:value={availCheckIn} onchange={filterAvailability} class="border-none bg-transparent outline-none text-xs text-slate-700 dark:text-slate-200 p-0 h-[22px]" />
-			</div>
-			<div class="flex items-center gap-2 border border-slate-200 rounded-lg px-2 py-1.5 focus-within:border-[#D4AF37] focus-within:ring-2 focus-within:ring-[#D4AF37]/20 bg-white dark:bg-slate-800 dark:border-slate-700 transition-all">
-				<span class="text-slate-400 text-[10px] font-bold uppercase ml-1">Libre (Out)</span>
-				<input type="date" bind:value={availCheckOut} onchange={filterAvailability} class="border-none bg-transparent outline-none text-xs text-slate-700 dark:text-slate-200 p-0 h-[22px]" />
-			</div>
-			{#if availableRoomsIds !== null || isFilteringAvail}
-				<button type="button" class="action-icon-btn h-[34px] w-[34px] hover:bg-slate-200 dark:hover:bg-slate-700" onclick={clearDateFilter} title="Limpiar filtro de fechas" disabled={isFilteringAvail}>
-					{#if isFilteringAvail}
-						<svg class="animate-spin" width="14" height="14" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-					{:else}
-						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-					{/if}
+				<div class="hidden xl:block w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+				<button class="admin-btn" onclick={openCreate}>
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+					NUEVA
 				</button>
-			{/if}
-
-			<button class="admin-btn py-2.5" onclick={openCreate}>Nueva Habitación</button>
+			</div>
 		</div>
 	</div>
 
@@ -362,5 +408,16 @@
 	bind:show={showImageModal} 
 	images={viewingRoom?.images || []} 
 	bind:currentIndex={currentImageIndex} 
+/>
+
+<GenericConfirmModal
+	isOpen={isDeleteModalOpen}
+	title="Eliminar Habitación"
+	message="¿Estás seguro de que deseas eliminar definitivamente esta habitación? Esta acción no se puede deshacer y afectará a futuras reservaciones."
+	confirmText="Eliminar"
+	variant="danger"
+	onConfirm={confirmDelete}
+	onClose={() => (isDeleteModalOpen = false)}
+	loading={actionLoading}
 />
 {/if}

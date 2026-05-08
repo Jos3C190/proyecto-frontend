@@ -8,6 +8,7 @@
 	import ImageLightboxModal from '$lib/components/admin/ImageLightboxModal.svelte';
 	import RoomPriceProjection from '$lib/components/admin/RoomPriceProjection.svelte';
 	import RoomUpcomingReservations from '$lib/components/admin/RoomUpcomingReservations.svelte';
+	import { getElSalvadorDate, formatToElSalvadorDate, getElSalvadorTomorrow } from '$lib/utils/date';
 	import '../../../adminPage.css';
 
 	let id = $derived(Number($sveltePage.params.id));
@@ -19,13 +20,7 @@
 	let showHistory = $state(true); // Mostrar por defecto en la página dedicada
 	let priceHistory: RoomPriceHistoryResponse | null = $state(null);
 	let loadingHistory = $state(false);
-	let targetDate = $state((() => {
-        const now = new Date();
-        const y = now.getFullYear();
-        const m = String(now.getMonth() + 1).padStart(2, '0');
-        const d = String(now.getDate()).padStart(2, '0');
-        return `${y}-${m}-${d}`;
-    })()); // Fecha local de hoy por defecto
+	let targetDate = $state(getElSalvadorDate()); // Fecha local de El Salvador por defecto
 
 	let showImageModal = $state(false);
 	let currentImageIndex = $state(0);
@@ -81,12 +76,9 @@
 
 			// Consultar disponibilidad para HOY
 			loadingAvailability = true;
-			const now = new Date();
-			const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+			const todayStr = getElSalvadorDate();
 			
-			const tom = new Date(now);
-			tom.setDate(now.getDate() + 1);
-			const tomStr = `${tom.getFullYear()}-${String(tom.getMonth() + 1).padStart(2, '0')}-${String(tom.getDate()).padStart(2, '0')}`;
+			const tomStr = getElSalvadorTomorrow();
 			
 			const search = await searchRooms(todayStr, tomStr, 1);
 			const found = search.find(r => r.room.id === id);
@@ -291,7 +283,7 @@
                             <div class="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-500">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3z"/><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z" stroke-width="2" stroke-linecap="round"/></svg>
                             </div>
-                            <h2 class="text-xl font-bold font-['Outfit'] text-slate-800 dark:text-slate-100 uppercase tracking-wide italic">Time Machine</h2>
+                            <h2 class="text-xl font-bold font-['Outfit'] text-slate-800 dark:text-slate-100 uppercase tracking-wide">PRECIOS EN EL TIEMPO</h2>
                         </div>
                         <div class="text-right">
                             <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Precio Base</p>
@@ -303,7 +295,7 @@
                     <div class="p-6 bg-slate-50 dark:bg-slate-950/50 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-inner">
                         <label class="text-[10px] font-black text-slate-500 dark:text-slate-400 mb-4 block uppercase tracking-[0.15em]">Consultar precio oficial en fecha:</label>
                         <div class="flex flex-col gap-4">
-                            <input type="date" bind:value={targetDate} class="w-full !bg-white dark:!bg-slate-900 dark:text-white !rounded-2xl !border-transparent !shadow-sm !py-3 !px-5 focus:!ring-[#D4AF37]/30 transition-all font-black" />
+                            <input type="date" bind:value={targetDate} class="w-full !bg-slate-50 dark:!bg-slate-800/50 dark:text-white !rounded-2xl !border-transparent !shadow-sm !py-3 !px-5 focus:!ring-[#D4AF37]/30 transition-all font-black" />
                             
                             {#if computedPriceBreakdown !== null}
                                 <div class="mt-2 text-center p-6 bg-amber-500 rounded-[28px] shadow-lg shadow-amber-500/20 text-white animate-pulse-subtle">
@@ -337,7 +329,7 @@
 
                     <!-- Listado de Temporadas -->
                     <div class="mt-10">
-                        <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Reglas Dinámicas Aplicadas</h3>
+                        <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Reglas Dinámicas Aplicadas (Temporadas)</h3>
                         <div class="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                             {#if room.season_prices && room.season_prices.length > 0}
                                 {#each room.season_prices as season}

@@ -9,22 +9,53 @@
 	import { authStore } from '$lib/stores/auth.store';
 	import { hasPermission } from '$lib/types';
 	import { toast } from '$lib/stores/toast.svelte';
+	import GenericConfirmModal from '$lib/components/ui/GenericConfirmModal.svelte';
 	
+	import { createPersistence } from '$lib/utils/persistence';
 	import '../adminPage.css';
+
+	const persistence = createPersistence({
+		key: 'admin_reservations',
+		defaultValues: {
+			page: 1,
+			pageSize: 10,
+			searchQuery: '',
+			selectedStatus: '',
+			filterStartDate: '',
+			filterEndDate: ''
+		}
+	});
+
+	const initialState = persistence.getInitialState();
 
 	let reservations = $state<ReservationRead[]>([]);
 	
 	let loading = $state(true);
+	let isDeleteModalOpen = $state(false);
+	let resToDelete = $state<ReservationRead | null>(null);
+	let actionLoading = $state(false);
 	let error = $state<string | null>(null);
 
-	let hasAccess = $derived(hasPermission($authStore.user, 'reservations', 'read'));
+	let page = $state(initialState.page);
+	let pageSize = $state(initialState.pageSize);
+	let searchQuery = $state(initialState.searchQuery);
+	let selectedStatus = $state(initialState.selectedStatus);
+	let filterStartDate = $state(initialState.filterStartDate);
+	let filterEndDate = $state(initialState.filterEndDate);
 
-	// Filters
-	let searchQuery = $state('');
-	let selectedStatus = $state('');
-	
-	let filterStartDate = $state('');
-	let filterEndDate = $state('');
+	// Sync state to persistence
+	$effect(() => {
+		persistence.saveState({
+			page,
+			pageSize,
+			searchQuery,
+			selectedStatus,
+			filterStartDate,
+			filterEndDate
+		});
+	});
+
+	let hasAccess = $derived(hasPermission($authStore.user, 'reservations', 'read'));
 
 	function clearDateFilter() {
 		filterStartDate = '';
@@ -36,9 +67,9 @@
 		const search = searchQuery.toLowerCase().trim();
 		const matchesSearch = search === '' || 
 			r.unique_id.toLowerCase().includes(search) || 
-			(r.user?.email && r.user.email.toLowerCase().includes(search)) || 
 			(r.user?.profile?.first_name && r.user.profile.first_name.toLowerCase().includes(search)) || 
-			(r.user?.profile?.last_name && r.user.profile.last_name.toLowerCase().includes(search));
+			(r.user?.profile?.last_name && r.user.profile.last_name.toLowerCase().includes(search)) ||
+			(r.user?.profile?.business_name && r.user.profile.business_name.toLowerCase().includes(search));
 		
 		const matchesStatus = selectedStatus === '' || r.status === selectedStatus;
 		
@@ -63,8 +94,6 @@
 	let availableStatuses = $derived(Array.from(new Set(reservations.map(r => r.status))));
 
 	// Pagination
-	let page = $state(1);
-	let pageSize = $state(10);
 	let paginatedReservations = $derived(filteredReservations.slice((page - 1) * pageSize, page * pageSize));
 	let totalPages = $derived(Math.ceil(filteredReservations.length / pageSize) || 1);
 	let hasNextPage = $derived(page < totalPages);
@@ -89,7 +118,6 @@
 		try {
 			reservations = await getAdminReservations();
 			error = null;
-			page = 1; // Reset to page 1 on reload
 		} catch (err: any) {
 			error = err.message;
 			toast.error('Error al cargar datos: ' + err.message);
@@ -119,13 +147,22 @@
 	}
 
 	async function handleDelete(r: ReservationRead) {
-		if (!confirm(`¿Eliminar definitivamente la reservación ${r.unique_id}? No se puede deshacer.`)) return;
+		resToDelete = r;
+		isDeleteModalOpen = true;
+	}
+
+	async function confirmDelete() {
+		if (!resToDelete) return;
+		actionLoading = true;
 		try {
-			await deleteAdminReservation(r.id);
+			await deleteAdminReservation(resToDelete.id);
 			toast.success(`Reservación eliminada`);
+			isDeleteModalOpen = false;
 			await loadAll();
 		} catch (e: any) {
 			toast.error(e.message || 'Error al eliminar');
+		} finally {
+			actionLoading = false;
 		}
 	}
 </script>
@@ -142,37 +179,44 @@
 			<h1 class="admin-title">Reservaciones</h1>
 			<p class="admin-desc">Gestión completa de las reservaciones (Crear, Editar, Eliminar, Pagar).</p>
 		</div>
-		<div class="admin-toolbar flex-wrap">
-			<div class="flex flex-1 gap-3 items-center min-w-[250px]">
-				<div class="relative flex-1">
-					<svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-					<input type="text" placeholder="Buscar por código, nombre o email..." bind:value={searchQuery} oninput={() => page = 1} class="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 outline-none bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 transition-all font-['Inter']" />
+		<div class="admin-toolbar">
+			<div class="admin-search-wrapper">
+				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+				<input type="text" placeholder="Buscar por código, nombre o email..." bind:value={searchQuery} oninput={() => page = 1} />
+			</div>
+
+			<div class="flex flex-wrap xl:flex-nowrap items-center gap-3">
+				<div class="admin-filters !flex-nowrap">
+					<div class="admin-input-group !gap-1.5 px-3">
+						<span>IN</span>
+						<input type="date" bind:value={filterStartDate} onchange={() => page = 1} class="!w-[85px] text-xs" />
+						<span class="text-slate-300 dark:text-slate-600 font-light mx-1">/</span>
+						<span>OUT</span>
+						<input type="date" bind:value={filterEndDate} onchange={() => page = 1} class="!w-[85px] text-xs" />
+						
+						{#if filterStartDate || filterEndDate}
+							<button type="button" class="ml-1 text-slate-400 hover:text-red-500 transition-colors" onclick={clearDateFilter} title="Limpiar fechas">
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+							</button>
+						{/if}
+					</div>
+
+					<select bind:value={selectedStatus} onchange={() => page = 1} class="!w-[130px]">
+						<option value="">Cualquier estado</option>
+						{#each availableStatuses as s}
+							<option value={s} class="uppercase">{s}</option>
+						{/each}
+					</select>
 				</div>
-				<select bind:value={selectedStatus} onchange={() => page = 1} class="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 outline-none bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 transition-all font-['Inter']">
-					<option value="">Todos los estados</option>
-					{#each availableStatuses as s}
-						<option value={s} class="uppercase">{s}</option>
-					{/each}
-				</select>
-			</div>
 
-			<div class="flex items-center gap-2 border border-slate-200 rounded-lg px-2 py-1.5 focus-within:border-[#D4AF37] focus-within:ring-2 focus-within:ring-[#D4AF37]/20 bg-white dark:bg-slate-800 dark:border-slate-700 transition-all font-['Inter']">
-				<span class="text-slate-400 text-[10px] font-bold uppercase ml-1">Desde</span>
-				<input type="date" bind:value={filterStartDate} onchange={() => page = 1} class="border-none bg-transparent outline-none text-xs text-slate-700 dark:text-slate-200 p-0 h-[22px]" />
+				{#if hasPermission($authStore.user, 'reservations', 'create')}
+					<div class="hidden xl:block w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+					<button type="button" class="admin-btn" onclick={openCreate}>
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+						NUEVA
+					</button>
+				{/if}
 			</div>
-			<div class="flex items-center gap-2 border border-slate-200 rounded-lg px-2 py-1.5 focus-within:border-[#D4AF37] focus-within:ring-2 focus-within:ring-[#D4AF37]/20 bg-white dark:bg-slate-800 dark:border-slate-700 transition-all font-['Inter']">
-				<span class="text-slate-400 text-[10px] font-bold uppercase ml-1">Hasta</span>
-				<input type="date" bind:value={filterEndDate} onchange={() => page = 1} class="border-none bg-transparent outline-none text-xs text-slate-700 dark:text-slate-200 p-0 h-[22px]" />
-			</div>
-			{#if filterStartDate || filterEndDate}
-				<button type="button" class="action-icon-btn h-[34px] w-[34px] hover:bg-slate-200 dark:hover:bg-slate-700" onclick={clearDateFilter} title="Limpiar fechas">
-					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-				</button>
-			{/if}
-
-			{#if hasPermission($authStore.user, 'reservations', 'create')}
-				<button type="button" class="admin-btn py-2.5" onclick={openCreate}>Nueva Reservación</button>
-			{/if}
 		</div>
 	</div>
 
@@ -212,8 +256,16 @@
 								<td class="whitespace-nowrap"><strong>{res.unique_id}</strong></td>
 								<td class="whitespace-nowrap">
 									<div class="flex flex-col">
-										<span class="font-medium text-slate-900 dark:text-white max-w-[150px] truncate inline-block" title={res.user?.profile ? `${res.user.profile.first_name} ${res.user.profile.last_name}` : res.user?.email}>
-											{res.user?.profile ? `${res.user.profile.first_name} ${res.user.profile.last_name}` : res.user?.email || 'N/A'}
+										<span class="font-medium text-slate-900 dark:text-white max-w-[150px] truncate inline-block" title={res.user?.profile ? (res.user.profile.person_type === 'Juridica' ? res.user.profile.business_name : `${res.user.profile.first_name} ${res.user.profile.last_name}`) : res.user?.email}>
+											{#if res.user?.profile}
+												{#if res.user.profile.person_type === 'Juridica'}
+													{res.user.profile.business_name || res.user.profile.first_name}
+												{:else}
+													{res.user.profile.first_name} {res.user.profile.last_name === 'N/A' ? '' : res.user.profile.last_name || ''}
+												{/if}
+											{:else}
+												{res.user?.email || 'N/A'}
+											{/if}
 										</span>
 										<span class="text-[10px] text-slate-400">ID: #{res.user_id}</span>
 									</div>
@@ -228,7 +280,7 @@
 									{formatDateShort(res.check_in)} - {formatDateShort(res.check_out)}
 								</td>
 								<td>
-									<span class="admin-badge {res.status === 'confirmed' && res.balance > 0 ? 'bg-yellow-500/20 text-yellow-700 border-yellow-500/30' : ''} {res.balance < 0 ? 'bg-indigo-500/20 text-indigo-700 border-indigo-500/30' : ''}">
+									<span class="admin-badge {res.status === 'confirmed' && res.balance > 0 ? 'bg-yellow-500/20 text-yellow-700 border-yellow-500/30' : ''} {res.balance < 0 ? 'bg-indigo-500/20 text-indigo-700 border-indigo-500/30' : ''} {res.status === 'verifying' ? 'bg-orange-500/20 text-orange-700 border-orange-500/30 dark:bg-orange-900/30 dark:text-orange-400' : ''}">
 										{res.status}
 										{#if res.status === 'confirmed' && res.balance > 0}
 											<small class="ml-1 opacity-80 decoration-red-500 underline underline-offset-2">${res.balance}</small>
@@ -259,7 +311,7 @@
 										{/if}
 									</div>
 								</td>
-							</tr>
+								</tr>
 							{/each}
 						{/if}
 					</tbody>
@@ -293,6 +345,15 @@
 		{/if}
 	</section>
 </div>
+
+<GenericConfirmModal
+	isOpen={isDeleteModalOpen}
+	title="Eliminar Reservación"
+	message="¿Estás seguro de que deseas eliminar definitivamente la reservación {resToDelete?.unique_id}? Esta acción no se puede deshacer."
+	confirmText="Eliminar"
+	variant="danger"
+	onConfirm={confirmDelete}
+	onClose={() => (isDeleteModalOpen = false)}
+	loading={actionLoading}
+/>
 {/if}
-
-

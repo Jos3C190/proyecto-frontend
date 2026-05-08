@@ -55,6 +55,38 @@
 				<span class="font-medium text-gray-900 dark:text-gray-100">{user.profile?.date_of_birth || 'N/D'}</span>
 			</div>
 
+			{#if user.profile?.person_type}
+				<div class="col-span-1 md:col-span-2 border-t pt-3 mt-1 border-gray-200 dark:border-gray-700">
+					<span class="text-xs mb-2 block uppercase text-gray-500 font-semibold tracking-wider">Información Fiscal (DTE)</span>
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<div class="flex flex-col gap-1">
+							<span class="text-xs text-gray-400">Tipo de Persona</span>
+							<span class="font-medium text-gray-900 dark:text-gray-100">{user.profile.person_type}</span>
+						</div>
+						
+						<div class="flex flex-col gap-1">
+							<span class="text-xs text-gray-400">DUI</span>
+							<span class="font-medium text-gray-900 dark:text-gray-100">{user.profile.dui || 'N/D'}</span>
+						</div>
+						
+						{#if user.profile.person_type === 'Juridica'}
+							<div class="flex flex-col gap-1">
+								<span class="text-xs text-gray-400">NIT</span>
+								<span class="font-medium text-gray-900 dark:text-gray-100">{user.profile.nit || 'N/D'}</span>
+							</div>
+							<div class="flex flex-col gap-1">
+								<span class="text-xs text-gray-400">NRC</span>
+								<span class="font-medium text-gray-900 dark:text-gray-100">{user.profile.nrc || 'N/D'}</span>
+							</div>
+							<div class="col-span-1 md:col-span-2 flex flex-col gap-1">
+								<span class="text-xs text-gray-400">Actividad Económica</span>
+								<span class="font-medium text-gray-900 dark:text-gray-100">{user.profile.economic_activity || 'N/D'}</span>
+							</div>
+						{/if}
+					</div>
+				</div>
+			{/if}
+
 			<div class="col-span-1 md:col-span-2 border-t pt-3 mt-1 border-gray-200 dark:border-gray-700">
 				<span class="text-xs mb-2 block uppercase text-gray-500 font-semibold tracking-wider">Datos GeoGráficos</span>
 				<div class="grid grid-cols-1 md:grid-cols-3 gap-4">

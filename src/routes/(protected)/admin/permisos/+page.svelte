@@ -10,19 +10,35 @@
 		fetchPermissionsMetadata,
 		createPolicy,
 		deletePolicy,
-        createPermissionResource,
-        deletePermissionResource,
+		createPermissionResource,
+		deletePermissionResource,
 		type PolicyCreate
 	} from '$lib/services/admin.service';
 	import type { PolicyRead } from '$lib/services/admin.service';
 	import type { RoleRead } from '$lib/types';
+	import GenericConfirmModal from '$lib/components/ui/GenericConfirmModal.svelte';
+	import { createPersistence } from '$lib/utils/persistence';
 	import '../adminPage.css';
+
+	const persistence = createPersistence({
+		key: 'admin_permissions',
+		defaultValues: {
+			page: 1,
+			pageSize: 100,
+			searchQuery: ''
+		}
+	});
+
+	const initialState = persistence.getInitialState();
 
 	let resources = $state<string[]>([]);
 	let actions = $state<string[]>([]);
 	let policies = $state<PolicyRead[]>([]);
 	let roles = $state<RoleRead[]>([]);
 	let loading = $state(true);
+	let isConfirmModalOpen = $state(false);
+	let modalConfig = $state<{ title: string; message: string; onConfirm: () => Promise<void> } | null>(null);
+	let actionLoading = $state(false);
 	let error = $state<string | null>(null);
 	let showCreate = $state(false);
 	let formData = $state({ sub: '', obj: '', act: '' });
@@ -32,11 +48,34 @@
 	let showResourceModal = $state(false);
 	let newResourceName = $state('');
 	let resourceLoading = $state(false);
-let page = $state(1);
-let pageSize = $state(100);
-let hasNextPage = $state(false);
 
-let hasAccess = $derived(hasPermission($authStore.user, 'permissions', 'read'));
+	let page = $state(initialState.page);
+	let pageSize = $state(initialState.pageSize);
+	let searchQuery = $state(initialState.searchQuery);
+
+	let hasNextPage = $state(false);
+
+	// Sync state to persistence
+	$effect(() => {
+		persistence.saveState({
+			page,
+			pageSize,
+			searchQuery
+		});
+	});
+
+	let hasAccess = $derived(hasPermission($authStore.user, 'permissions', 'read'));
+let filteredPolicies = $derived(
+	policies.filter((p) => {
+		const query = searchQuery.toLowerCase().trim();
+		return (
+			query === '' ||
+			p.sub.toLowerCase().includes(query) ||
+			p.obj.toLowerCase().includes(query) ||
+			p.act.toLowerCase().includes(query)
+		);
+	})
+);
 
 async function load(targetPage?: number) {
 	loading = true;
@@ -128,16 +167,27 @@ function setPageSize(e: Event) {
 			toast.warning('No puedes eliminar el comodín (*).');
 			return;
 		}
-		if (!confirm(`¿Eliminar el recurso "${resName}"? Esto eliminará todas las políticas asociadas en Casbin.`)) return;
-		try {
-			await deletePermissionResource(resName);
-			toast.success(`Recurso "${resName}" eliminado`);
-			const metadata = await fetchPermissionsMetadata();
-			resources = metadata.resources;
-			await load(page);
-		} catch (e) {
-			toast.error(e instanceof Error ? e.message : 'Error al eliminar recurso');
-		}
+		
+		modalConfig = {
+			title: 'Eliminar Recurso',
+			message: `¿Estás seguro de que deseas eliminar el recurso "${resName}"? Esto eliminará todas las políticas asociadas en Casbin.`,
+			onConfirm: async () => {
+				actionLoading = true;
+				try {
+					await deletePermissionResource(resName);
+					toast.success(`Recurso "${resName}" eliminado`);
+					const metadata = await fetchPermissionsMetadata();
+					resources = metadata.resources;
+					isConfirmModalOpen = false;
+					await load(page);
+				} catch (e) {
+					toast.error(e instanceof Error ? e.message : 'Error al eliminar recurso');
+				} finally {
+					actionLoading = false;
+				}
+			}
+		};
+		isConfirmModalOpen = true;
 	}
 
 	async function handleCreate(e: Event) {
@@ -167,14 +217,24 @@ function setPageSize(e: Event) {
 	}
 
 	async function handleDelete(p: PolicyRead) {
-		if (!confirm(`¿Eliminar la política ${p.sub} -> ${p.obj} / ${p.act}?`)) return;
-		try {
-			await deletePolicy(p.sub, p.obj, p.act);
-			toast.success('Política eliminada');
-			await load(page);
-		} catch (e) {
-			toast.error(e instanceof Error ? e.message : 'Error al eliminar');
-		}
+		modalConfig = {
+			title: 'Eliminar Política',
+			message: `¿Estás seguro de que deseas eliminar la política ${p.sub} -> ${p.obj} / ${p.act}?`,
+			onConfirm: async () => {
+				actionLoading = true;
+				try {
+					await deletePolicy(p.sub, p.obj, p.act);
+					toast.success('Política eliminada');
+					isConfirmModalOpen = false;
+					await load(page);
+				} catch (e) {
+					toast.error(e instanceof Error ? e.message : 'Error al eliminar');
+				} finally {
+					actionLoading = false;
+				}
+			}
+		};
+		isConfirmModalOpen = true;
 	}
 
 	onMount(async () => {
@@ -182,7 +242,7 @@ function setPageSize(e: Event) {
 			goto('/dashboard', { replaceState: true });
 			return;
 		}
-		await load(1);
+		await load(page);
 	});
 </script>
 
@@ -200,15 +260,33 @@ function setPageSize(e: Event) {
 				Define qué acción puede realizar cada rol sobre cada recurso. Solo se pueden asignar permisos a roles existentes.
 			</p>
 		</div>
-		<div class="admin-toolbar flex-col sm:flex-row w-full sm:w-auto">
-			{#if hasPermission($authStore.user, 'permissions', 'create')}
-				<button type="button" class="admin-btn w-full sm:w-auto" onclick={openCreate} disabled={roles.length === 0}>
-					Nueva Política
+		<div class="admin-toolbar flex-col sm:flex-row w-full sm:w-auto gap-3">
+			<div class="admin-search-wrapper w-full sm:w-64">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg
+				>
+				<input type="text" placeholder="Buscar permiso..." bind:value={searchQuery} oninput={() => page = 1} />
+			</div>
+
+			<div class="flex flex-wrap items-center gap-2">
+				{#if hasPermission($authStore.user, 'permissions', 'create')}
+					<button type="button" class="admin-btn w-full sm:w-auto" onclick={openCreate} disabled={roles.length === 0}>
+						Nueva Política
+					</button>
+				{/if}
+				<button type="button" class="admin-btn-secondary w-full sm:w-auto" onclick={openResourceModal}>
+					Gestionar Recursos
 				</button>
-			{/if}
-			<button type="button" class="admin-btn-secondary w-full sm:w-auto mt-2 sm:mt-0" onclick={openResourceModal}>
-				Gestionar Recursos
-			</button>
+			</div>
 			{#if roles.length === 0}
 				<span class="admin-hint text-center sm:text-left mt-2 sm:mt-0 w-full sm:w-auto">Crea al menos un rol antes de agregar políticas.</span>
 			{/if}
@@ -231,7 +309,7 @@ function setPageSize(e: Event) {
 					</tr>
 				</thead>
 				<tbody>
-					{#each policies as p}
+					{#each filteredPolicies as p}
 						<tr>
 							<td><span class="admin-badge">{p.sub}</span></td>
 							<td>{p.obj}</td>
@@ -256,7 +334,7 @@ function setPageSize(e: Event) {
 
 			<div class="admin-pagination">
 				<div class="admin-pagination-left">
-					<span>Mostrando {policies.length} política(s)</span>
+					<span>Mostrando {filteredPolicies.length} política(s)</span>
 					<div class="admin-page-size">
 						<label for="page-size-permisos" class="text-sm">Filas:</label>
 						<select id="page-size-permisos" value={pageSize} onchange={setPageSize}>
@@ -372,3 +450,14 @@ function setPageSize(e: Event) {
 	</div>
 {/if}
 {/if}
+
+<GenericConfirmModal
+	isOpen={isConfirmModalOpen}
+	title={modalConfig?.title || 'Confirmar Acción'}
+	message={modalConfig?.message || ''}
+	confirmText="Eliminar"
+	variant="danger"
+	onConfirm={() => modalConfig?.onConfirm()}
+	onClose={() => (isConfirmModalOpen = false)}
+	loading={actionLoading}
+/>

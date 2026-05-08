@@ -1,11 +1,43 @@
 import { API_BASE } from '$lib/config/api';
 import { getStoredAuth } from '$lib/services/auth.service';
 
+export interface DashboardKPI {
+	total: number;
+	growth: number;
+	adr?: number;
+	revpar?: number;
+	revpar_growth?: number;
+	price_efficiency?: number;
+}
+
+export interface RoomDistribution {
+	total: number;
+	occupied: number;
+	available: number;
+	arrivals_7d: number;
+	departures_7d: number;
+}
+
+export interface RevenueTrendItem {
+	date: string;
+	amount: number;
+	type: 'actual' | 'forecast';
+}
+
+export interface MarketMixItem {
+	label: string;
+	value: number;
+}
+
 export interface DashboardStats {
-	total_users: number;
-	total_rooms: number;
-	active_reservations: number;
-	total_revenue: number;
+	kpis: {
+		users: DashboardKPI;
+		rooms: RoomDistribution;
+		reservations: DashboardKPI;
+		revenue: DashboardKPI;
+	};
+	revenue_trend: RevenueTrendItem[];
+	market_mix: MarketMixItem[];
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {
