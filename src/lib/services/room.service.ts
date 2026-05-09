@@ -198,3 +198,141 @@ export async function uploadRoomImage(file: File): Promise<{ url: string }> {
 	return await res.json();
 }
 
+// ----- Amenities -----
+
+export interface AmenityCategoryRead {
+	id: number;
+	name: string;
+}
+
+export interface AmenityCategoryCreate {
+	name: string;
+}
+
+export interface AmenityCategoryUpdate {
+	name: string;
+}
+
+export interface AmenityRead {
+	id: number;
+	name: string;
+	icon?: string | null;
+	category?: AmenityCategoryRead | null;
+}
+
+export interface AmenityCreate {
+	name: string;
+	icon?: string | null;
+	category_id?: number | null;
+}
+
+export interface AmenityUpdate {
+	name?: string;
+	icon?: string | null;
+	category_id?: number | null;
+}
+
+export async function getAdminAmenityCategories(): Promise<AmenityCategoryRead[]> {
+	const stored = getStoredAuth();
+	if (!stored) throw new Error('No autenticado');
+	const res = await fetch(`${API_BASE}/admin/amenity-categories`, {
+		headers: { 'Authorization': `Bearer ${stored.token}` }
+	});
+	if (!res.ok) throw new Error('Error al obtener categorías de amenidades');
+	return res.json();
+}
+
+export async function createAmenityCategory(data: AmenityCategoryCreate): Promise<AmenityCategoryRead> {
+	const stored = getStoredAuth();
+	if (!stored) throw new Error('No autenticado');
+	const res = await fetch(`${API_BASE}/admin/amenity-categories`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${stored.token}` },
+		body: JSON.stringify(data)
+	});
+	const json = await res.json();
+	if (!res.ok) throw new Error(json.detail || 'Error al crear categoría de amenidad');
+	return json;
+}
+
+export async function updateAmenityCategory(id: number, data: AmenityCategoryUpdate): Promise<AmenityCategoryRead> {
+	const stored = getStoredAuth();
+	if (!stored) throw new Error('No autenticado');
+	const res = await fetch(`${API_BASE}/admin/amenity-categories/${id}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${stored.token}` },
+		body: JSON.stringify(data)
+	});
+	const json = await res.json();
+	if (!res.ok) throw new Error(json.detail || 'Error al actualizar categoría de amenidad');
+	return json;
+}
+
+export async function deleteAmenityCategory(id: number): Promise<void> {
+	const stored = getStoredAuth();
+	if (!stored) throw new Error('No autenticado');
+	const res = await fetch(`${API_BASE}/admin/amenity-categories/${id}`, {
+		method: 'DELETE',
+		headers: { 'Authorization': `Bearer ${stored.token}` }
+	});
+	if (!res.ok) {
+		const json = await res.json();
+		throw new Error(json.detail || 'Error al eliminar categoría de amenidad');
+	}
+}
+
+export async function getAdminAmenities(): Promise<AmenityRead[]> {
+	const stored = getStoredAuth();
+	if (!stored) throw new Error('No autenticado');
+	const res = await fetch(`${API_BASE}/admin/amenities`, {
+		headers: { 'Authorization': `Bearer ${stored.token}` }
+	});
+	if (!res.ok) throw new Error('Error al obtener amenidades');
+	return res.json();
+}
+
+export async function getPublicAmenities(): Promise<AmenityRead[]> {
+	const res = await fetch(`${API_BASE}/rooms/amenities`);
+	if (!res.ok) throw new Error('Error al obtener amenidades');
+	return res.json();
+}
+
+export async function createAmenity(data: AmenityCreate): Promise<AmenityRead> {
+	const stored = getStoredAuth();
+	if (!stored) throw new Error('No autenticado');
+	const res = await fetch(`${API_BASE}/admin/amenities`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${stored.token}` },
+		body: JSON.stringify(data)
+	});
+	const json = await res.json();
+	if (!res.ok) throw new Error(json.detail || 'Error al crear amenidad');
+	return json;
+}
+
+export async function updateAmenity(id: number, data: AmenityUpdate): Promise<AmenityRead> {
+	const stored = getStoredAuth();
+	if (!stored) throw new Error('No autenticado');
+	const res = await fetch(`${API_BASE}/admin/amenities/${id}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${stored.token}` },
+		body: JSON.stringify(data)
+	});
+	const json = await res.json();
+	if (!res.ok) throw new Error(json.detail || 'Error al actualizar amenidad');
+	return json;
+}
+
+export async function deleteAmenity(id: number): Promise<void> {
+	const stored = getStoredAuth();
+	if (!stored) throw new Error('No autenticado');
+	const res = await fetch(`${API_BASE}/admin/amenities/${id}`, {
+		method: 'DELETE',
+		headers: { 'Authorization': `Bearer ${stored.token}` }
+	});
+	if (!res.ok) {
+		const json = await res.json().catch(() => ({}));
+		throw new Error(json.detail || 'Error al eliminar amenidad');
+	}
+}
+

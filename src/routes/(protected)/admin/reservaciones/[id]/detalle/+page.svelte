@@ -354,7 +354,7 @@
                             </p>
                         </div>
 
-                        {#if reservation.balance > 0 && reservation.status !== 'verifying'}
+                        {#if reservation.balance > 0 && reservation.status !== 'verifying' && reservation.status !== 'cancelled'}
                             <button class="w-full admin-btn !py-4 mt-4 shadow-amber-500/20" onclick={goToPayment}>
                                 Registrar Nuevo Pago
                             </button>

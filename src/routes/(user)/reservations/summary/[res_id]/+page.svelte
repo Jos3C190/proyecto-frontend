@@ -213,23 +213,25 @@
 				</a>
 				
 				
-				{#if (reservation.balance || 0) > 0 && reservation.status !== 'verifying'}
-					<button class="w-full sm:w-auto px-8 py-3 rounded-xl border border-red-200 bg-red-50/50 text-sm font-bold uppercase tracking-widest text-red-600 transition hover:bg-red-100 dark:border-red-900/30 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 shadow-sm" onclick={handleCancel} disabled={cancelLoading}>
-						{cancelLoading ? 'Procesando...' : 'Cancelar Reserva'}
-					</button>
-					<a href="/payments/{reservation.id}" class="w-full sm:w-auto px-8 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA8222] text-sm font-bold uppercase tracking-widest text-slate-900 transition hover:from-[#f3cd54] hover:to-[#c69a2b] shadow-lg shadow-[#D4AF37]/20 text-center">
-						Proceder al Pago
-					</a>
-				{:else if reservation.status === 'confirmed'}
-					<button class="w-full sm:w-auto px-8 py-3 rounded-xl border border-red-200 bg-red-50/50 text-sm font-bold uppercase tracking-widest text-red-600 transition hover:bg-red-100 dark:border-red-900/30 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 shadow-sm" onclick={handleCancel} disabled={cancelLoading}>
-						{cancelLoading ? 'Procesando...' : 'Cancelar Reserva'}
-					</button>
-				{:else if reservation.status === 'verifying'}
-					{@const verifyingPayment = reservation.payments?.find(p => p.status === 'verifying')}
-					{#if verifyingPayment}
-						<button class="w-full sm:w-auto px-8 py-3 rounded-xl border border-orange-200 bg-orange-50/50 text-sm font-bold uppercase tracking-widest text-orange-600 transition hover:bg-orange-100 shadow-sm dark:border-orange-900/30 dark:bg-orange-500/10 dark:text-orange-400 dark:hover:bg-orange-500/20" onclick={() => handleCancelPayment(verifyingPayment.id)} disabled={cancelLoading}>
-							{cancelLoading ? 'Procesando...' : 'Cancelar Pago Pendiente'}
+				{#if reservation.status !== 'cancelled' && reservation.status !== 'completed'}
+					{#if (reservation.balance || 0) > 0 && reservation.status !== 'verifying'}
+						<button class="w-full sm:w-auto px-8 py-3 rounded-xl border border-red-200 bg-red-50/50 text-sm font-bold uppercase tracking-widest text-red-600 transition hover:bg-red-100 dark:border-red-900/30 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 shadow-sm" onclick={handleCancel} disabled={cancelLoading}>
+							{cancelLoading ? 'Procesando...' : 'Cancelar Reserva'}
 						</button>
+						<a href="/payments/{reservation.id}" class="w-full sm:w-auto px-8 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA8222] text-sm font-bold uppercase tracking-widest text-slate-900 transition hover:from-[#f3cd54] hover:to-[#c69a2b] shadow-lg shadow-[#D4AF37]/20 text-center">
+							Proceder al Pago
+						</a>
+					{:else if reservation.status === 'confirmed'}
+						<button class="w-full sm:w-auto px-8 py-3 rounded-xl border border-red-200 bg-red-50/50 text-sm font-bold uppercase tracking-widest text-red-600 transition hover:bg-red-100 dark:border-red-900/30 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 shadow-sm" onclick={handleCancel} disabled={cancelLoading}>
+							{cancelLoading ? 'Procesando...' : 'Cancelar Reserva'}
+						</button>
+					{:else if reservation.status === 'verifying'}
+						{@const verifyingPayment = reservation.payments?.find(p => p.status === 'verifying')}
+						{#if verifyingPayment}
+							<button class="w-full sm:w-auto px-8 py-3 rounded-xl border border-orange-200 bg-orange-50/50 text-sm font-bold uppercase tracking-widest text-orange-600 transition hover:bg-orange-100 shadow-sm dark:border-orange-900/30 dark:bg-orange-500/10 dark:text-orange-400 dark:hover:bg-orange-500/20" onclick={() => handleCancelPayment(verifyingPayment.id)} disabled={cancelLoading}>
+								{cancelLoading ? 'Procesando...' : 'Cancelar Pago Pendiente'}
+							</button>
+						{/if}
 					{/if}
 				{/if}
 			</div>

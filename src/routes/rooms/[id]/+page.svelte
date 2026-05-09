@@ -247,22 +247,21 @@
 						<h3>Lo que ofrece este lugar</h3>
 						<div class="amenities-grid">
 							{#if room.amenities && room.amenities.length > 0}
-								{#each room.amenities as am}
+								{#each room.amenities.slice(0, 8) as am}
 									<div class="amenity-item">
-										<span class="am-icon">✦</span>
+										<span class="am-icon">
+											<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+										</span>
 										{am.name}
 									</div>
 								{/each}
 							{:else}
-								<div class="amenity-item"><span class="am-icon">📡</span> WiFi de alta velocidad</div>
-								<div class="amenity-item"><span class="am-icon">📺</span> Smart TV 75" 4K</div>
-								<div class="amenity-item"><span class="am-icon">❄️</span> Aire acondicionado central</div>
-								<div class="amenity-item"><span class="am-icon">🍸</span> Minibar gourmet</div>
-								<div class="amenity-item"><span class="am-icon">👔</span> Servicio de planchado</div>
-								<div class="amenity-item"><span class="am-icon">🚿</span> Ducha de lluvia tipo spa</div>
+								<p class="text-slate-500">No hay amenidades registradas para esta habitación.</p>
 							{/if}
 						</div>
-						<button class="btn-all-amenities">Mostrar las {room.amenities.length || 15} amenidades</button>
+						{#if room.amenities && room.amenities.length > 8}
+							<button class="btn-all-amenities">Mostrar las {room.amenities.length} amenidades</button>
+						{/if}
 					</div>
 				</section>
 			</div>

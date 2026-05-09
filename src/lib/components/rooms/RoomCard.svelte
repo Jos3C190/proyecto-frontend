@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { getElSalvadorDate } from '$lib/utils/date';
 	import type { RoomRead } from '$lib/types/room';
+	import AmenityIcon from '$lib/components/ui/AmenityIcon.svelte';
 	
 	interface Props {
 		room: RoomRead;
@@ -118,18 +120,22 @@
 			</div>
 
 			<div class="amenities-row">
-				<div class="amenity">
+				<div class="amenity" title="Capacidad">
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
 					<span>{room.capacity}</span>
 				</div>
-				<div class="amenity">
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"></path><path d="M2 8h18a2 2 0 0 1 2 2v10"></path><path d="M2 17h20"></path><path d="M6 8v9"></path></svg>
-					<span>King</span>
-				</div>
-				<div class="amenity">
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
-					<span>WiFi</span>
-				</div>
+				{#if room.amenities && room.amenities.length > 0}
+					{#each room.amenities.slice(0, 2) as am}
+						<div class="amenity" title={am.name}>
+							{#if am.icon}
+								<AmenityIcon name={am.icon} size={14} strokeWidth={2.5} class="opacity-70" />
+							{:else}
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+							{/if}
+							<span>{am.name.length > 10 ? am.name.substring(0, 8) + '...' : am.name}</span>
+						</div>
+					{/each}
+				{/if}
 			</div>
 			
 			<div class="price-container">

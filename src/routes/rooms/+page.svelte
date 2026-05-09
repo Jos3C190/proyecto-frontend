@@ -3,7 +3,7 @@
 	import type { RoomRead, RoomSearchResponse } from '$lib/types/room';
 	import RoomCard from '$lib/components/rooms/RoomCard.svelte';
 	import PublicFooter from '$lib/components/layout/PublicFooter.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	
 	import { createPersistence } from '$lib/utils/persistence';
 	
@@ -58,7 +58,23 @@
 		}
 	});
 
+	// Carousel Logic
+	const carouselImages = [
+		'https://images.unsplash.com/photo-1611043704267-e67464e2351c?auto=format&fit=crop&w=1920&q=80',
+		'https://images.unsplash.com/photo-1571003123771-bd6a099dd83a?auto=format&fit=crop&w=1920&q=80',
+		'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1920&q=80',
+		'https://images.unsplash.com/photo-1578458329607-534298aebc4d?auto=format&fit=crop&w=1920&q=80'
+	];
+	let currentImageIndex = $state(0);
+	let carouselInterval: any;
+
+	function nextImage() {
+		currentImageIndex = (currentImageIndex + 1) % carouselImages.length;
+	}
+
 	onMount(async () => {
+		carouselInterval = setInterval(nextImage, 6000);
+		
 		// Cargar tipos dinámicos
 		try {
 			dynamicRoomTypes = await getPublicRoomTypes();
@@ -71,6 +87,10 @@
 		} else {
 			await loadPublicRooms();
 		}
+	});
+
+	onDestroy(() => {
+		if (carouselInterval) clearInterval(carouselInterval);
 	});
 
 	async function loadPublicRooms() {
@@ -158,8 +178,17 @@
 
 
 
-<!-- Premium Page Header -->
+<!-- Premium Page Header with Carousel -->
 <header class="page-header">
+	<div class="carousel-container">
+		{#each carouselImages as img, i}
+			<div 
+				class="carousel-slide" 
+				class:active={currentImageIndex === i}
+				style="background-image: url('{img}')"
+			></div>
+		{/each}
+	</div>
 	<div class="overlay"></div>
 	<div class="header-content">
 		<h1>Nuestras Habitaciones</h1>
@@ -313,19 +342,39 @@
 	.page-header {
 		position: relative;
 		height: 45vh;
-		min-height: 400px;
-		background-image: url('https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=1920&q=80');
-		background-size: cover;
-		background-position: center;
+		min-height: 450px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		color: white;
-		margin-top: -5rem; /* Para absorber el pt del navbar */
+		margin-top: -5rem;
 		padding-top: 5rem;
+		overflow: hidden;
+	}
+	.carousel-container {
+		position: absolute;
+		inset: 0;
+		z-index: 0;
+	}
+	.carousel-slide {
+		position: absolute;
+		inset: 0;
+		background-size: cover;
+		background-position: center;
+		opacity: 0;
+		transform: scale(1.05);
+		transition: opacity 2.5s ease-in-out, transform 2.5s ease-in-out;
+	}
+	.carousel-slide.active {
+		opacity: 1;
+		transform: scale(1.15);
+		transition: opacity 2.5s ease-in-out, transform 10s ease-out;
 	}
 	.overlay {
-		position: absolute; inset: 0; background: rgba(11, 14, 20, 0.6);
+		position: absolute; 
+		inset: 0; 
+		background: linear-gradient(to bottom, rgba(11, 14, 20, 0.75), rgba(11, 14, 20, 0.5));
+		z-index: 1;
 	}
 	.header-content {
 		position: relative; z-index: 10; text-align: center;
@@ -398,6 +447,7 @@
 		font-family: inherit; 
 		font-weight: 600;
 	}
+	
 	.input-block select option { background: var(--bg-main); color: var(--text-main); }
 	.divider { width: 1px; height: 30px; background: rgba(0,0,0,0.1); align-self: center; }
 	:global(.dark) .divider { background: rgba(255,255,255,0.1); }

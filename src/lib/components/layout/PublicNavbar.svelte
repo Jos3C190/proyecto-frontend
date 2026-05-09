@@ -45,7 +45,7 @@
 
 <svelte:window bind:scrollY={scrollY} />
 
-<nav class="public-navbar {scrollY > 50 || !alwaysTransparent ? 'scrolled' : ''} {alwaysTransparent && scrollY <= 50 ? 'absolute-pos' : 'fixed-pos'}">
+<nav class="public-navbar {scrollY > 50 || !alwaysTransparent ? 'scrolled' : 'is-transparent'} {alwaysTransparent && scrollY <= 50 ? 'absolute-pos' : 'fixed-pos'}">
 	<div class="nav-container">
 		<a href="/" class="nav-brand">
 			<span class="brand-accent">AFE</span> Resort
@@ -109,6 +109,20 @@
 		transition: all 0.4s ease;
 		border-bottom: 1px solid transparent;
 		font-family: 'Inter', sans-serif;
+		/* Fuerza el renderizado por hardware para evitar lag visual y parpadeos del desenfoque */
+		transform: translateZ(0);
+		will-change: transform, background-color, backdrop-filter;
+	}
+	
+	/* Forzar texto blanco cuando es transparente sobre el video */
+	.is-transparent .nav-brand,
+	.is-transparent .nav-link,
+	.is-transparent .btn-profile,
+	.is-transparent :global(.btn-bell) {
+		color: white !important;
+	}
+	.is-transparent .chevron {
+		color: rgba(255, 255, 255, 0.7) !important;
 	}
 	.fixed-pos { position: fixed; top: 0; left: 0; right: 0; }
 	.absolute-pos { position: absolute; top: 0; left: 0; right: 0; }

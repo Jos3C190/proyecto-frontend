@@ -5,14 +5,15 @@
 	import { toast } from '$lib/stores/toast.svelte';
 	import { authStore } from '$lib/stores/auth.store';
 	import { hasPermission } from '$lib/types';
-	import { getRoom, updateRoom, getAdminRoomTypes } from '$lib/services/room.service';
-	import type { RoomRead, RoomTypeRead } from '$lib/types/room';
+	import { getRoom, updateRoom, getAdminRoomTypes, getAdminAmenities } from '$lib/services/room.service';
+	import type { RoomRead, RoomTypeRead, AmenityRead } from '$lib/services/room.service';
 	import RoomForm from '$lib/components/admin/RoomForm.svelte';
 	import RoomTypesModal from '$lib/components/admin/RoomTypesModal.svelte';
 	import '../../adminPage.css';
 
 	let id = $derived(Number(sveltePage.params.id));
 	let roomTypes = $state<RoomTypeRead[]>([]);
+	let allAmenities = $state<AmenityRead[]>([]);
 	let room = $state<any>(null);
 	let loading = $state(true);
 	let saving = $state(false);
@@ -21,14 +22,17 @@
 	async function loadAll() {
 		loading = true;
 		try {
-			const [roomData, typesData] = await Promise.all([
+			const [roomData, typesData, amenitiesData] = await Promise.all([
 				getRoom(id),
-				getAdminRoomTypes()
+				getAdminRoomTypes(),
+				getAdminAmenities()
 			]);
 			roomTypes = typesData;
+			allAmenities = amenitiesData;
 			// Adapt room for form
 			room = {
 				...roomData,
+				amenities: roomData.amenities ? roomData.amenities.map(a => a.id) : [],
 				season_prices: roomData.season_prices ? [...roomData.season_prices.map(s => ({...s}))] : [],
 				images: roomData.images ? roomData.images.map(img => img.url) : []
 			};
@@ -102,6 +106,7 @@
 			mode="edit"
 			bind:room={room}
 			{roomTypes}
+			{allAmenities}
 			{saving}
 			onSave={handleSave}
 			onCancel={handleCancel}

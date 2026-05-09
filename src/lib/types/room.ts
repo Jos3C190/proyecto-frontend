@@ -9,9 +9,16 @@ export interface RoomTypeRead {
 	description?: string;
 }
 
+export interface AmenityCategoryRead {
+	id: number;
+	name: string;
+}
+
 export interface RoomAmenityRead {
 	id: number;
 	name: string;
+	icon?: string | null;
+	category?: AmenityCategoryRead | null;
 }
 
 export interface RoomImageRead {
@@ -69,6 +76,7 @@ export interface RoomCreate {
 	is_active: boolean;
 	season_prices: SeasonPriceCreate[];
 	images: string[];
+	amenities?: number[];  // IDs from amenity catalog
 }
 
 export interface RoomUpdate extends Partial<RoomCreate> {}

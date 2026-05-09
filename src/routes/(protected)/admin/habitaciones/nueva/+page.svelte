@@ -4,13 +4,14 @@
 	import { toast } from '$lib/stores/toast.svelte';
 	import { authStore } from '$lib/stores/auth.store';
 	import { hasPermission } from '$lib/types';
-	import { createRoom, getAdminRoomTypes } from '$lib/services/room.service';
-	import type { RoomTypeRead } from '$lib/types/room';
+	import { createRoom, getAdminRoomTypes, getAdminAmenities } from '$lib/services/room.service';
+	import type { RoomTypeRead, AmenityRead } from '$lib/services/room.service';
 	import RoomForm from '$lib/components/admin/RoomForm.svelte';
 	import RoomTypesModal from '$lib/components/admin/RoomTypesModal.svelte';
 	import '../../adminPage.css';
 
 	let roomTypes = $state<RoomTypeRead[]>([]);
+	let allAmenities = $state<AmenityRead[]>([]);
 	let showRoomTypesModal = $state(false);
 	let saving = $state(false);
 
@@ -22,12 +23,18 @@
 		description: '',
 		is_active: true,
 		season_prices: [],
-		images: []
+		images: [],
+		amenities: []
 	});
 
 	async function loadTypes() {
 		try {
-			roomTypes = await getAdminRoomTypes();
+			const [typesData, amenitiesData] = await Promise.all([
+				getAdminRoomTypes(),
+				getAdminAmenities()
+			]);
+			roomTypes = typesData;
+			allAmenities = amenitiesData;
 			if (roomTypes.length > 0 && !room.type) {
 				room.type = roomTypes[0].name;
 			}
@@ -101,6 +108,7 @@
         mode="create"
         bind:room={room}
         {roomTypes}
+        {allAmenities}
         {saving}
         onSave={handleSave}
         onCancel={handleCancel}

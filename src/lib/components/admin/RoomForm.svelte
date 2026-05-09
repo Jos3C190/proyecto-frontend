@@ -3,12 +3,14 @@
 		uploadRoomImage 
 	} from '$lib/services/room.service';
 	import type { RoomTypeRead } from '$lib/types/room';
+	import type { AmenityRead } from '$lib/services/room.service';
 	import { toast } from '$lib/stores/toast.svelte';
 
 	let { 
 		mode = 'create', 
 		room = $bindable(), 
 		roomTypes, 
+		allAmenities = [],
 		onSave,
 		onCancel,
 		onOpenRoomTypes,
@@ -17,11 +19,32 @@
 		mode: 'create' | 'edit';
 		room: any;
 		roomTypes: RoomTypeRead[];
+		allAmenities: AmenityRead[];
 		onSave: (e: Event) => Promise<void>;
 		onCancel: () => void;
 		onOpenRoomTypes: () => void;
         saving: boolean;
 	}>();
+
+	function toggleAmenity(id: number) {
+		if (!room.amenities) room.amenities = [];
+		const idx = room.amenities.indexOf(id);
+		if (idx >= 0) {
+			room.amenities = room.amenities.filter((a: number) => a !== id);
+		} else {
+			room.amenities = [...room.amenities, id];
+		}
+	}
+
+	let amenitiesByCategory = $derived.by(() => {
+		const map = new Map<string, AmenityRead[]>();
+		for (const a of allAmenities) {
+			const cat = a.category?.name || 'Otros';
+			if (!map.has(cat)) map.set(cat, []);
+			map.get(cat)!.push(a);
+		}
+		return map;
+	});
 
 	let uploadingImage = $state(false);
 	let tempImageUrl = $state('');
@@ -170,6 +193,50 @@
                         {room.is_active ? 'Activa' : 'Desconectada'}
                     </span>
                 </div>
+            </section>
+
+            <!-- Card: Amenidades -->
+            <section class="bg-white dark:bg-slate-900 rounded-[32px] p-8 shadow-sm border border-slate-100 dark:border-slate-800/50">
+                <div class="flex items-center justify-between mb-8">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-violet-50 dark:bg-violet-500/10 flex items-center justify-center text-violet-600 dark:text-violet-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                        </div>
+                        <h2 class="text-xl font-bold font-['Outfit'] text-slate-800 dark:text-slate-100 uppercase tracking-wide">Amenidades</h2>
+                    </div>
+                    <span class="text-[10px] font-black text-violet-600 bg-violet-50 dark:bg-violet-500/10 px-3 py-1.5 rounded-full uppercase tracking-widest">
+                        {room.amenities?.length || 0} seleccionadas
+                    </span>
+                </div>
+
+                {#if allAmenities.length === 0}
+                    <div class="text-center py-10 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[28px]">
+                        <p class="text-sm text-slate-400">No hay amenidades en el catálogo. Crea algunas desde el módulo de Amenidades.</p>
+                    </div>
+                {:else}
+                    <div class="space-y-6">
+                        {#each [...amenitiesByCategory.entries()] as [category, items]}
+                            <div>
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">{category}</p>
+                                <div class="flex flex-wrap gap-2">
+                                    {#each items as amenity}
+                                        {@const isSelected = room.amenities?.includes(amenity.id)}
+                                        <button
+                                            type="button"
+                                            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all duration-200 border {isSelected ? 'bg-violet-500 text-white border-violet-500 shadow-lg shadow-violet-500/20 scale-[1.02]' : 'bg-slate-50 dark:bg-slate-800/30 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-violet-500/40 hover:bg-violet-50 dark:hover:bg-violet-900/20'}"
+                                            onclick={() => toggleAmenity(amenity.id)}
+                                        >
+                                            {#if isSelected}
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                            {/if}
+                                            {amenity.name}
+                                        </button>
+                                    {/each}
+                                </div>
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
             </section>
 
             <!-- Card: Temporadas -->

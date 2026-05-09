@@ -3,4 +3,72 @@
 @plugin '@tailwindcss/typography';
 
 /* clase .dark */
+:global(.dark) {
+	color-scheme: dark;
+}
 @custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	text-rendering: optimizeLegibility;
+	
+	/* Variables de tema base */
+	--gold: #D4AF37;
+	--gold-dark: #AA8222;
+	--border-light: rgba(0,0,0,0.1);
+	--bg-main: #f8fafc;
+	--bg-alt: #ffffff;
+	--text-main: #0f172a;
+	--text-muted: #64748b;
+}
+
+:root.dark, .dark {
+	--bg-main: #0B0E14;
+	--bg-alt: #0f131a;
+	--text-main: #ffffff;
+	--text-muted: #94a3b8;
+	--border-light: rgba(255,255,255,0.12);
+	color-scheme: dark;
+}
+
+body {
+	font-family: 'Inter', sans-serif;
+	background-color: var(--bg-main);
+	color: var(--text-main);
+	margin: 0;
+	padding: 0;
+}
+
+/* Global Form Borders visibility */
+.input-group input {
+    border: 1px solid var(--border-light);
+}
+
+/* Global Form Borders visibility in Dark Mode */
+:global(.dark) {
+    --border-light: rgba(255, 255, 255, 0.12);
+}
+
+/* Fixes globales para inputs en modo oscuro para evitar lag de renderizado */
+:global(.dark) input[type="date"]::-webkit-calendar-picker-indicator {
+	filter: invert(1) brightness(0.9);
+	cursor: pointer;
+}
+
+/* Auth Pages Core Styles (Prevent FOUC) */
+.luxury-auth-layout .input-group input {
+    border: 1px solid var(--border-light);
+    background: var(--bg-alt);
+    transition: all 0.3s ease;
+}
+
+:global(.dark) .luxury-auth-layout .input-group input {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+:global(.dark) .search-console,
+:global(.dark) .glass-card,
+:global(.dark) .luxury-hero {
+	will-change: filter, transform, background-color;
+}

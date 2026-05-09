@@ -287,9 +287,7 @@ function setPageSize(e: Event) {
 					Gestionar Recursos
 				</button>
 			</div>
-			{#if roles.length === 0}
-				<span class="admin-hint text-center sm:text-left mt-2 sm:mt-0 w-full sm:w-auto">Crea al menos un rol antes de agregar políticas.</span>
-			{/if}
+			
 		</div>
 	</div>
 

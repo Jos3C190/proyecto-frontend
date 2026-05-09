@@ -115,7 +115,7 @@
 			</form>
 
 			<div class="form-footer">
-				<p>¿No tienes una cuenta aún? <a href="" class="text-gold">Regístrate aquí</a></p>
+				<p>¿No tienes una cuenta aún? <a href="/register" class="text-gold">Regístrate aquí</a></p>
 			</div>
 		</div>
 	</div>
@@ -131,6 +131,9 @@
 		width: 100vw;
 		background: var(--bg-main, #0B0E14);
 		font-family: 'Inter', sans-serif;
+		/* Fuerza el renderizado por hardware para evitar lag visual */
+		transform: translateZ(0);
+		will-change: transform;
 	}
 
 	/* Imagen Izquierda */
@@ -185,11 +188,11 @@
 	
 	.alert-error { background: rgba(220, 38, 38, 0.1); border-left: 4px solid #dc2626; color: #ef4444; padding: 1rem; border-radius: 4px; font-size: 0.9rem; }
 
-	.input-group label { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600; }
+	.input-group label { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 0.75rem; font-weight: 700; }
 	.input-group input { 
-		width: 100%; padding: 1rem; background: var(--bg-alt); border: 1px solid var(--border-light); color: var(--text-main); border-radius: 8px; font-family: inherit; font-size: 1rem; transition: all 0.3s;
+		width: 100%; padding: 1.1rem 1.2rem; background: var(--bg-alt); border: 1px solid var(--border-light); color: var(--text-main); border-radius: 12px; font-family: inherit; font-size: 1rem; transition: all 0.3s;
 	}
-	.input-group input:focus { outline: none; border-color: #D4AF37; box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1); }
+	.input-group input:focus { outline: none; border-color: #D4AF37; box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.15); }
 	.input-group input.invalid { border-color: #ef4444; }
 	.field-error { display: block; color: #ef4444; font-size: 0.8rem; margin-top: 0.5rem; }
 

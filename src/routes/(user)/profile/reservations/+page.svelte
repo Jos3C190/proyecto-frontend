@@ -88,11 +88,10 @@
 	<!-- Hero Section -->
 	<header class="luxury-hero">
 		<div class="hero-bg">
-			<img src="https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?q=80&w=2070&auto=format&fit=crop" alt="Background" />
+			<img src="https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?q=80&w=2070&auto=format&fit=crop" alt="Background" class="ken-burns" />
 			<div class="overlay"></div>
 		</div>
 		<div class="hero-content">
-			<span class="badge-gold">MI PORTAL</span>
 			<h1>Mis <span class="text-gold">Reservaciones</span></h1>
 			<p>Revive tus memorias o prepárate para tu próxima gran experiencia en el paraíso.</p>
 		</div>
@@ -289,13 +288,15 @@
 	/* Hero Section */
 	.luxury-hero {
 		position: relative;
-		height: 400px;
+		height: 45vh;
+		min-height: 450px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		overflow: hidden;
 		text-align: center;
-		margin-top: -4rem; 
+		margin-top: -5rem; 
+		padding-top: 5rem;
 	}
 	.hero-bg {
 		position: absolute;
@@ -306,17 +307,18 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		filter: brightness(0.5) contrast(1.1);
-		transition: filter 0.5s ease;
+		transform: scale(1.05);
+		animation: kenburns-single 20s ease-in-out infinite alternate;
 	}
-	:global(html:not(.dark)) .hero-bg img {
-		filter: brightness(0.7) contrast(1.05);
+	@keyframes kenburns-single {
+		from { transform: scale(1.05); }
+		to { transform: scale(1.2); }
 	}
-
 	.overlay {
 		position: absolute;
 		inset: 0;
-		background: rgba(0, 0, 0, 0.4); /* Solid subtle overlay instead of gradient */
+		background: linear-gradient(to bottom, rgba(11, 14, 20, 0.75), rgba(11, 14, 20, 0.5));
+		z-index: 1;
 	}
 	.hero-content {
 		position: relative;
@@ -324,32 +326,22 @@
 		max-width: 800px;
 		padding: 0 2rem;
 	}
-	.badge-gold {
-		display: inline-block;
-		padding: 0.5rem 1.25rem;
-		background: rgba(212, 175, 55, 0.2);
-		border: 1px solid var(--gold);
-		color: var(--gold);
-		font-family: 'Outfit';
-		font-weight: 700;
-		font-size: 0.75rem;
-		letter-spacing: 2px;
-		border-radius: 50px;
-		margin-bottom: 1.5rem;
-	}
 	.hero-content h1 {
-		font-family: 'Outfit';
-		font-size: clamp(2.5rem, 5vw, 4rem);
+		font-family: 'Outfit', sans-serif;
+		font-size: 3.5rem;
 		font-weight: 300;
-		line-height: 1.1;
-		margin-bottom: 1rem;
+		margin-bottom: 0.5rem;
+		letter-spacing: -1px;
 		color: white;
+		line-height: 1.1;
 	}
-	.text-gold { color: var(--gold); font-italic: italic; }
+	.text-gold { color: var(--gold); }
 	.hero-content p {
-		font-size: 1.1rem;
-		color: rgba(255,255,255,0.7);
+		font-size: 1.25rem;
+		color: #cbd5e1;
 		font-weight: 300;
+		max-width: 700px;
+		margin: 0 auto;
 	}
 
 	/* Content Wrapper */
@@ -364,7 +356,7 @@
 	/* Tabs Overlap */
 	.tabs-overlap-container {
 		max-width: 1200px;
-		margin: -35px auto 4rem; /* Solapamiento de 35px sobre el Hero */
+		margin: -40px auto 4rem; /* Solapamiento de 40px sobre el Hero */
 		position: relative;
 		z-index: 40;
 		display: flex;
