@@ -61,7 +61,7 @@
 	// Carousel Logic
 	const carouselImages = [
 		'https://images.unsplash.com/photo-1611043704267-e67464e2351c?auto=format&fit=crop&w=1920&q=80',
-		'https://images.unsplash.com/photo-1571003123771-bd6a099dd83a?auto=format&fit=crop&w=1920&q=80',
+		'https://plus.unsplash.com/premium_photo-1682913629540-3857602b540c?auto=format&fit=crop&w=1920&q=80',
 		'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1920&q=80',
 		'https://images.unsplash.com/photo-1578458329607-534298aebc4d?auto=format&fit=crop&w=1920&q=80'
 	];
