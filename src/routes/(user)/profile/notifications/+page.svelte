@@ -1,82 +1,59 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
-	import { goto } from '$app/navigation';
-
-	// Tipos y datos compartidos (Idealmente vendrían de un store o context)
-	type NotificationType = 'info' | 'success' | 'warning' | 'alert';
-
-	interface Notification {
-		id: string;
-		title: string;
-		message: string;
-		type: NotificationType;
-		timeAgo: string;
-		read: boolean;
-		date: string;
-	}
-
-	let notifications = $state<Notification[]>([
-		{
-			id: '1',
-			title: 'Reserva Confirmada',
-			message: 'Tu reserva para la Suite Presidencial ha sido confirmada con éxito. Número de confirmación: RES-2023-492.',
-			type: 'success',
-			timeAgo: 'Hace 5 min',
-			read: false,
-			date: '15 Nov 2023'
-		},
-		{
-			id: '2',
-			title: 'Mantenimiento Programado',
-			message: 'El área de la piscina estará en mantenimiento mañana de 8:00 AM a 12:00 PM. Agradecemos su comprensión.',
-			type: 'warning',
-			timeAgo: 'Hace 2 horas',
-			read: false,
-			date: '15 Nov 2023'
-		},
-		{
-			id: '3',
-			title: 'Oferta Especial',
-			message: 'Aprovecha un 20% de descuento en el spa durante tu estancia. Válido hasta fin de mes.',
-			type: 'info',
-			timeAgo: 'Hace 1 día',
-			read: true,
-			date: '14 Nov 2023'
-		},
-		{
-			id: '4',
-			title: 'Pago Pendiente',
-			message: 'Tienes un saldo pendiente de $150 en tu cuenta correspondiente al cargo por servicio a la habitación.',
-			type: 'alert',
-			timeAgo: 'Hace 2 días',
-			read: true,
-			date: '13 Nov 2023'
-		}
-	]);
+	import {
+		notifications,
+		unreadCount,
+		notificationActions
+	} from '$lib/stores/notification.store';
 
 	let filter = $state<'all' | 'unread'>('all');
 	
 	let filteredNotifications = $derived(
-		filter === 'unread' ? notifications.filter(n => !n.read) : notifications
+		filter === 'unread' ? $notifications.filter(n => !n.is_read) : $notifications
 	);
 
-	let unreadCount = $derived(notifications.filter(n => !n.read).length);
-
 	function markAllAsRead() {
-		notifications = notifications.map(n => ({ ...n, read: true }));
+		notificationActions.markAllAsRead();
 	}
 
-	function markAsRead(id: string) {
-		notifications = notifications.map(n => n.id === id ? { ...n, read: true } : n);
+	function markAsRead(id: number) {
+		notificationActions.markAsRead(id);
 	}
 
-	function getTypeIcon(type: NotificationType) {
+	function deleteNotification(id: number) {
+		notificationActions.deleteNotification(id);
+	}
+
+	function getTypeIcon(type: string) {
 		switch (type) {
 			case 'success': return 'M5 13l4 4L19 7'; // check
 			case 'warning': return 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'; // warning
 			case 'alert': return 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'; // error/alert
 			case 'info': default: return 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'; // info
 		}
+	}
+
+	function formatDateTime(dateStr: string): string {
+		const d = new Date(dateStr);
+		return d.toLocaleDateString('es-ES', { 
+			day: 'numeric', 
+			month: 'short', 
+			year: 'numeric' 
+		});
+	}
+
+	function timeAgo(dateStr: string): string {
+		const now = new Date();
+		const date = new Date(dateStr);
+		const diffMs = now.getTime() - date.getTime();
+		const diffMin = Math.floor(diffMs / 60000);
+		if (diffMin < 1) return 'Ahora';
+		if (diffMin < 60) return `Hace ${diffMin} min`;
+		const diffHours = Math.floor(diffMin / 60);
+		if (diffHours < 24) return `Hace ${diffHours}h`;
+		const diffDays = Math.floor(diffHours / 24);
+		if (diffDays < 30) return `Hace ${diffDays}d`;
+		return `Hace ${Math.floor(diffDays / 30)} mes(es)`;
 	}
 </script>
 
@@ -90,7 +67,7 @@
 			<h1 class="page-title">Centro de Notificaciones</h1>
 			<p class="page-subtitle">Mantente al tanto de tus reservas, ofertas y avisos importantes.</p>
 		</div>
-		{#if unreadCount > 0}
+		{#if $unreadCount > 0}
 			<button class="btn-mark-all" onclick={markAllAsRead}>
 				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></svg>
 				Marcar todas leídas
@@ -110,8 +87,8 @@
 			onclick={() => filter = 'unread'}
 		>
 			No leídas
-			{#if unreadCount > 0}
-				<span class="badge">{unreadCount}</span>
+			{#if $unreadCount > 0}
+				<span class="badge">{$unreadCount}</span>
 			{/if}
 		</button>
 	</div>
@@ -127,26 +104,26 @@
 			</div>
 		{:else}
 			{#each filteredNotifications as notification (notification.id)}
-				<div class="notification-card" class:unread={!notification.read} transition:fade>
-					<div class="card-icon {notification.type}">
+				<div class="notification-card" class:unread={!notification.is_read} transition:fade>
+					<div class="card-icon {notification.severity}">
 						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-							<path d={getTypeIcon(notification.type)}></path>
+							<path d={getTypeIcon(notification.severity)}></path>
 						</svg>
 					</div>
 					<div class="card-content">
 						<div class="card-header">
 							<h3 class="card-title">{notification.title}</h3>
-							<span class="card-date">{notification.date} &middot; {notification.timeAgo}</span>
+							<span class="card-date">{formatDateTime(notification.created_at)} &middot; {timeAgo(notification.created_at)}</span>
 						</div>
 						<p class="card-message">{notification.message}</p>
 					</div>
 					<div class="card-actions">
-						{#if !notification.read}
+						{#if !notification.is_read}
 							<button class="btn-action" onclick={() => markAsRead(notification.id)} title="Marcar como leída">
 								<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
 							</button>
 						{/if}
-						<button class="btn-action danger" title="Eliminar (Simulado)">
+						<button class="btn-action danger" onclick={() => deleteNotification(notification.id)} title="Eliminar">
 							<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
 						</button>
 					</div>

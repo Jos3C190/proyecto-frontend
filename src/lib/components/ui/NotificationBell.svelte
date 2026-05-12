@@ -1,70 +1,24 @@
 <script lang="ts">
 	import { fade, slide } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
-	import Icon from '$lib/components/icons/Icon.svelte';
-
-	// Tipos de notificaciones simuladas
-	type NotificationType = 'info' | 'success' | 'warning' | 'alert';
-
-	interface Notification {
-		id: string;
-		title: string;
-		message: string;
-		type: NotificationType;
-		timeAgo: string;
-		read: boolean;
-	}
-
-	// Datos de prueba (Mocks)
-	let notifications = $state<Notification[]>([
-		{
-			id: '1',
-			title: 'Reserva Confirmada',
-			message: 'Tu reserva para la Suite Presidencial ha sido confirmada con éxito.',
-			type: 'success',
-			timeAgo: 'Hace 5 min',
-			read: false
-		},
-		{
-			id: '2',
-			title: 'Mantenimiento Programado',
-			message: 'El área de la piscina estará en mantenimiento mañana de 8:00 AM a 12:00 PM.',
-			type: 'warning',
-			timeAgo: 'Hace 2 horas',
-			read: false
-		},
-		{
-			id: '3',
-			title: 'Oferta Especial',
-			message: 'Aprovecha un 20% de descuento en el spa durante tu estancia.',
-			type: 'info',
-			timeAgo: 'Hace 1 día',
-			read: true
-		},
-		{
-			id: '4',
-			title: 'Pago Pendiente',
-			message: 'Tienes un saldo pendiente de $150 en tu cuenta.',
-			type: 'alert',
-			timeAgo: 'Hace 2 días',
-			read: true
-		}
-	]);
+	import {
+		notifications,
+		unreadCount,
+		notificationActions
+	} from '$lib/stores/notification.store';
 
 	let isOpen = $state(false);
-	
-	let unreadCount = $derived(notifications.filter(n => !n.read).length);
 
 	function toggleDropdown() {
 		isOpen = !isOpen;
 	}
 
-	function markAllAsRead() {
-		notifications = notifications.map(n => ({ ...n, read: true }));
+	function handleMarkAllAsRead() {
+		notificationActions.markAllAsRead();
 	}
 
-	function markAsRead(id: string) {
-		notifications = notifications.map(n => n.id === id ? { ...n, read: true } : n);
+	function handleMarkAsRead(id: number) {
+		notificationActions.markAsRead(id);
 	}
 
 	function clickOutside(node: HTMLElement) {
@@ -81,13 +35,27 @@
 		};
 	}
 
-	function getTypeIcon(type: NotificationType) {
+	function getTypeIcon(type: string): string {
 		switch (type) {
-			case 'success': return 'M5 13l4 4L19 7'; // check
-			case 'warning': return 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'; // warning
-			case 'alert': return 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'; // error/alert
-			case 'info': default: return 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'; // info
+			case 'success': return 'M5 13l4 4L19 7';
+			case 'warning': return 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z';
+			case 'alert': return 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z';
+			case 'info': default: return 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z';
 		}
+	}
+
+	function timeAgo(dateStr: string): string {
+		const now = new Date();
+		const date = new Date(dateStr);
+		const diffMs = now.getTime() - date.getTime();
+		const diffMin = Math.floor(diffMs / 60000);
+		if (diffMin < 1) return 'Ahora';
+		if (diffMin < 60) return `Hace ${diffMin} min`;
+		const diffHours = Math.floor(diffMin / 60);
+		if (diffHours < 24) return `Hace ${diffHours}h`;
+		const diffDays = Math.floor(diffHours / 24);
+		if (diffDays < 30) return `Hace ${diffDays}d`;
+		return `Hace ${Math.floor(diffDays / 30)} mes(es)`;
 	}
 </script>
 
@@ -104,9 +72,9 @@
 			<path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
 		</svg>
 		
-		{#if unreadCount > 0}
+		{#if $unreadCount > 0}
 			<span class="notification-badge" transition:fade={{ duration: 150 }}>
-				{unreadCount > 9 ? '9+' : unreadCount}
+				{$unreadCount > 9 ? '9+' : $unreadCount}
 			</span>
 		{/if}
 	</button>
@@ -119,41 +87,41 @@
 			<div class="dropdown-header">
 				<div>
 					<h3 class="header-title">Notificaciones</h3>
-					<p class="header-subtitle">Tienes {unreadCount} mensajes sin leer</p>
+					<p class="header-subtitle">Tienes {$unreadCount} mensajes sin leer</p>
 				</div>
-				{#if unreadCount > 0}
-					<button class="btn-mark-read" onclick={markAllAsRead}>
+				{#if $unreadCount > 0}
+					<button class="btn-mark-read" onclick={handleMarkAllAsRead}>
 						Marcar todas como leídas
 					</button>
 				{/if}
 			</div>
 
 			<div class="dropdown-body">
-				{#if notifications.length === 0}
+				{#if $notifications.length === 0}
 					<div class="empty-state">
 						<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="empty-icon"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
 						<p>No tienes notificaciones por el momento.</p>
 					</div>
 				{:else}
-					{#each notifications as notification (notification.id)}
+					{#each $notifications as notification (notification.id)}
 						<button 
 							class="notification-item" 
-							class:unread={!notification.read}
-							onclick={() => markAsRead(notification.id)}
+							class:unread={!notification.is_read}
+							onclick={() => handleMarkAsRead(notification.id)}
 						>
-							<div class="notification-icon {notification.type}">
+							<div class="notification-icon {notification.severity}">
 								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-									<path d={getTypeIcon(notification.type)}></path>
+									<path d={getTypeIcon(notification.severity)}></path>
 								</svg>
 							</div>
 							<div class="notification-content">
 								<div class="notification-title-row">
 									<span class="notification-title">{notification.title}</span>
-									<span class="notification-time">{notification.timeAgo}</span>
+									<span class="notification-time">{timeAgo(notification.created_at)}</span>
 								</div>
 								<p class="notification-message">{notification.message}</p>
 							</div>
-							{#if !notification.read}
+							{#if !notification.is_read}
 								<div class="unread-dot"></div>
 							{/if}
 						</button>
@@ -210,7 +178,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border: 2px solid var(--nav-bg, #0B0E14); /* to create a cut-out effect */
+		border: 2px solid var(--nav-bg, #0B0E14);
 	}
 
 	.dropdown-menu {

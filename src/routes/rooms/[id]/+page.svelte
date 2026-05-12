@@ -3,6 +3,8 @@
 	import { getRoom } from '$lib/services/room.service';
 	import type { RoomRead } from '$lib/types/room';
 	import PublicFooter from '$lib/components/layout/PublicFooter.svelte';
+	import AmenitiesModal from '$lib/components/rooms/AmenitiesModal.svelte';
+	import AmenityIcon from '$lib/components/ui/AmenityIcon.svelte';
 	import { onMount, tick } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
 	
@@ -96,6 +98,8 @@
 	let iva = $derived(subtotal * 0.13);
 	let tourism = $derived(subtotal * 0.05);
 	let total = $derived(subtotal + iva + tourism);
+
+	let showAmenitiesModal = $state(false);
 
 	// Grid logic
 	let gridImages = $derived.by(() => {
@@ -250,7 +254,7 @@
 								{#each room.amenities.slice(0, 8) as am}
 									<div class="amenity-item">
 										<span class="am-icon">
-											<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+											<AmenityIcon name={am.icon || 'sparkles'} size={20} strokeWidth={1.5} />
 										</span>
 										{am.name}
 									</div>
@@ -260,7 +264,9 @@
 							{/if}
 						</div>
 						{#if room.amenities && room.amenities.length > 8}
-							<button class="btn-all-amenities">Mostrar las {room.amenities.length} amenidades</button>
+							<button class="btn-all-amenities" onclick={() => showAmenitiesModal = true}>
+								Mostrar las {room.amenities.length} amenidades
+							</button>
 						{/if}
 					</div>
 				</section>
@@ -329,6 +335,9 @@
 			</div>
 		</div>
 	{/if}
+
+	<!-- Modal de Amenidades -->
+	<AmenitiesModal {room} show={showAmenitiesModal} onClose={() => showAmenitiesModal = false} />
 </main>
 
 <PublicFooter />

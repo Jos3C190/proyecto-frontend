@@ -384,3 +384,34 @@ export async function resendPaymentEmail(paymentId: number): Promise<{ message: 
 	if (!res.ok) throw new Error(body.detail ?? 'Error al reenviar el correo');
 	return body;
 }
+
+// ---------------------------------------------------------------------------
+// Configuración Global / Notification Settings
+// ---------------------------------------------------------------------------
+
+export interface NotificationSettingRead {
+	id: number;
+	key: string;
+	value: string;
+	description?: string | null;
+	updated_at: string;
+}
+
+export async function fetchNotificationSettings(): Promise<NotificationSettingRead[]> {
+	const res = await fetch(`${API_BASE}/admin/notification-settings`, {
+		headers: getAuthHeaders()
+	});
+	if (!res.ok) throw new Error('Error al cargar configuraciones');
+	return res.json();
+}
+
+export async function updateNotificationSetting(key: string, value: string | number | boolean): Promise<NotificationSettingRead> {
+	const res = await fetch(`${API_BASE}/admin/notification-settings/${key}`, {
+		method: 'PUT',
+		headers: getAuthHeaders(),
+		body: JSON.stringify({ value: String(value) })
+	});
+	const body = await res.json().catch(() => ({}));
+	if (!res.ok) throw new Error(body.detail ?? 'Error al actualizar configuración');
+	return body;
+}
