@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { authStore } from '$lib/stores/auth.store';
 	import { getPublicRooms } from '$lib/services/room.service';
+	import { fetchPublicSettings } from '$lib/services/settings.service';
 	import PublicNavbar from '$lib/components/layout/PublicNavbar.svelte';
 	import PublicFooter from '$lib/components/layout/PublicFooter.svelte';
 	import PriceAwareDatePicker from '$lib/components/ui/PriceAwareDatePicker.svelte';
@@ -8,7 +9,7 @@
 	import type { RoomRead } from '$lib/types/room';
 	import { onMount, tick } from 'svelte';
 	import { flip } from 'svelte/animate';
-	import { fade } from 'svelte/transition';
+	import { fade, slide } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	
 	let expandedRoomVideoId = $state<number | string | null>(null);
@@ -21,6 +22,7 @@
 
 	
 	let featuredRooms = $state<RoomRead[]>([]);
+	let settingsState = $state<any>(null);
 	let loading = $state(true);
 	let scrollY = $state(0);
 	
@@ -66,7 +68,36 @@
 		window.addEventListener('scroll', handleScroll);
 		
 		try {
-			featuredRooms = await getPublicRooms();
+			const [rooms, settings] = await Promise.all([
+				getPublicRooms(),
+				fetchPublicSettings()
+			]);
+			settingsState = settings;
+			
+			if (settings?.featured_rooms_home) {
+				const featuredIds = settings.featured_rooms_home.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+				if (featuredIds.length > 0) {
+					const roomMap = new Map(rooms.map(r => [r.id, r]));
+					const orderedRooms: RoomRead[] = [];
+					for (const id of featuredIds) {
+						const r = roomMap.get(id);
+						if (r) orderedRooms.push(r);
+					}
+					// Rellenar con las demás habitaciones del catálogo público si hay menos de 3
+					if (orderedRooms.length < 3) {
+						for (const r of rooms) {
+							if (!orderedRooms.some(or => or.id === r.id)) {
+								orderedRooms.push(r);
+							}
+						}
+					}
+					featuredRooms = orderedRooms;
+				} else {
+					featuredRooms = rooms;
+				}
+			} else {
+				featuredRooms = rooms;
+			}
 		} catch (e) {
 			console.error(e);
 		} finally {
@@ -116,6 +147,39 @@
 		}
 		return Number(room.base_price) * multiplier;
 	}
+
+	// Lógica reactiva para acordeones de FAQs
+	let faqOpenIndex = $state<number | null>(null);
+	
+	const defaultFaqs = [
+		{
+			question: "¿Cuál es el horario de Check-in y Check-out?",
+			answer: "El horario estándar de Check-in es a partir de las 15:00 horas, permitiéndole ingresar a nuestras suites inmersivas de lujo. El Check-out es a las 11:00 horas para asegurar la preparación óptima y sanitización de las habitaciones."
+		},
+		{
+			question: "¿El resort cuenta con políticas de cancelación flexible?",
+			answer: "Sí, ofrecemos cancelación sin penalidad hasta 48 horas antes de su llegada programada para reservaciones estándar. Para tarifas especiales o en alta temporada, se aplican términos específicos que podrá revisar al reservar."
+		},
+		{
+			question: "¿Tienen servicio de traslado desde el aeropuerto?",
+			answer: "Absolutamente. AFE Resort & Spa ofrece traslados privados en vehículos híbridos de alta gama. Este servicio puede coordinarse con nuestro Concierge Privado con un mínimo de 24 horas de anticipación."
+		},
+		{
+			question: "¿Se permiten mascotas en el resort?",
+			answer: "Disponemos de suites especialmente acondicionadas para recibir a sus acompañantes caninos (máximo 15kg). Aplica una tarifa única de sanitización y es indispensable notificarlo al realizar su reserva."
+		}
+	];
+
+	let faqs = $derived.by(() => {
+		const raw = settingsState?.faq_items_json || '';
+		if (!raw || raw === '[]') return defaultFaqs;
+		try {
+			const parsed = JSON.parse(raw);
+			return parsed.length > 0 ? parsed : defaultFaqs;
+		} catch (e) {
+			return defaultFaqs;
+		}
+	});
 </script>
 
 <svelte:head>
@@ -131,7 +195,7 @@
 		<div class="hero-bg">
 			<!-- Video background (usando Coverr royalty-free) -->
 			<video 
-				src="/videos/hotel-hero-video2.mp4" 
+				src={settingsState?.hero_video_url || "/videos/hotel-hero-video2.mp4"} 
 				class="parallax-video" 
 				autoplay loop muted playsinline>
 			</video>
@@ -141,8 +205,46 @@
 		
 		<div class="hero-content fade-up-delay">
 			<div class="badge">Bienvenidos al Paraíso</div>
-			<h1 class="title-display">Lujo <span>sin</span><br/>concesiones.</h1>
-			<p class="subtitle">Descubre una experiencia arquitectónica y de hospitalidad diseñada para exceder cada una de tus expectativas.</p>
+			
+			{#if loading}
+				<!-- Premium Shimmer Skeleton para textos del Hero -->
+				<div class="space-y-5 flex flex-col items-center animate-pulse py-4">
+					<!-- Shimmer del Título (Línea 1) -->
+					<div class="h-14 md:h-20 w-80 md:w-[600px] bg-white/10 rounded-2xl relative overflow-hidden">
+						<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]"></div>
+					</div>
+					<!-- Shimmer del Título (Línea 2) -->
+					<div class="h-14 md:h-20 w-64 md:w-[450px] bg-white/10 rounded-2xl relative overflow-hidden">
+						<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]"></div>
+					</div>
+					<!-- Shimmer del Subtítulo (Líneas de texto) -->
+					<div class="h-4.5 w-72 md:w-[500px] bg-white/10 rounded-xl mt-6 relative overflow-hidden">
+						<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]"></div>
+					</div>
+					<div class="h-4.5 w-56 md:w-[350px] bg-white/10 rounded-xl relative overflow-hidden">
+						<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]"></div>
+					</div>
+				</div>
+			{:else}
+				<!-- Contenido Dinámico con Entrada Suave -->
+				<div class="fade-in-slow">
+					<h1 class="title-display">
+						{#if settingsState?.hero_title}
+							{@const segments = settingsState.hero_title.split('/')}
+							{#each segments as segment, index}
+								{#if index % 2 === 1}
+									<span>{segment}</span>
+								{:else}
+									{segment}
+								{/if}
+							{/each}
+						{:else}
+							Lujo <span>sin</span><br/>concesiones.
+						{/if}
+					</h1>
+					<p class="subtitle">{settingsState?.hero_subtitle || "Descubre una experiencia arquitectónica y de hospitalidad diseñada para exceder cada una de tus expectativas."}</p>
+				</div>
+			{/if}
 		</div>
 		<!-- The Crystal Monolith Booking Interface -->
 		<div 
@@ -313,13 +415,13 @@ v>
 			<div class="relative w-full h-[400px] sm:h-[500px] lg:h-[600px] mt-12 lg:mt-0">
 				<!-- Main Image -->
 				<div class="absolute top-0 right-0 w-[85%] h-[85%] rounded-[2rem] overflow-hidden shadow-2xl border border-[#D4AF37]/20 z-10 transition-transform duration-700 hover:scale-[1.02]">
-					<img src="https://images.unsplash.com/photo-1529316275402-0462fcc4abd6?q=80&w=1471&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" class="w-full h-full object-cover" alt="Luxury Resort Pool" />
+					<img src={settingsState?.esencia_img_main || "https://images.unsplash.com/photo-1529316275402-0462fcc4abd6?q=80&w=1471&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"} class="w-full h-full object-cover" alt="Luxury Resort Pool" />
 					<div class="absolute inset-0 bg-gradient-to-t from-[#0B0E14]/60 via-transparent to-transparent"></div>
 				</div>
 				
 				<!-- Secondary Overlapping Image -->
 				<div class="absolute bottom-0 left-0 w-[55%] h-[45%] rounded-[1.5rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.4)] border-[6px] border-white dark:border-[#0f131a] z-20 transition-transform duration-500 hover:-translate-y-3">
-					<img src="https://images.unsplash.com/photo-1596436889106-be35e843f974?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" class="w-full h-full object-cover" alt="Luxury Suite View" />
+					<img src={settingsState?.esencia_img_secondary || "https://images.unsplash.com/photo-1596436889106-be35e843f974?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"} class="w-full h-full object-cover" alt="Luxury Suite View" />
 				</div>
 				
 				<!-- Creative 5-Star Badge -->
@@ -339,7 +441,7 @@ v>
 	</section>
 
 	<!-- Amenities Section -->
-	<section class="amenities-section reveal py-32 relative bg-slate-50 dark:bg-[#0B0E14] overflow-hidden">
+	<section class="amenities-section reveal py-32 relative overflow-hidden">
 		<!-- Elementos flotantes rebuscados (imágenes de fondo asimétricas) -->
 		<div class="absolute top-[10%] left-[-5%] w-72 h-[450px] rounded-full overflow-hidden opacity-30 blur-[2px] transform rotate-12 pointer-events-none fade-up-delay">
 			<img src="https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?auto=format&fit=crop&w=600&q=80" alt="Restaurant Art" class="w-full h-full object-cover">
@@ -360,44 +462,44 @@ v>
 				<!-- Card 1 -->
 				<div class="relative rounded-2xl border border-slate-200/50 bg-white/70 backdrop-blur-xl p-10 text-center shadow-lg dark:border-slate-800/50 dark:bg-slate-900/80 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl hover:border-[#D4AF37]/50 group mt-12 md:mt-24">
 					<div class="absolute -top-16 left-1/2 transform -translate-x-1/2 w-32 h-32 rounded-full overflow-hidden border-4 border-white dark:border-slate-800 shadow-xl transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3">
-						<img src="https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=400&q=80" alt="Dining" class="w-full h-full object-cover">
+						<img src={settingsState?.amenity_sig_1_img || "https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=400&q=80"} alt="Dining" class="w-full h-full object-cover">
 					</div>
 					<div class="mt-16 mb-6">
 						<svg xmlns="http://www.w3.org/2000/svg" class="mx-auto w-8 h-8 text-[#D4AF37]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
 					</div>
-					<h3 class="text-xl font-medium font-['Outfit'] mb-4 text-slate-800 dark:text-slate-100">Gastronomía Premium</h3>
-					<p class="text-slate-500 dark:text-slate-400 leading-relaxed text-sm">Alta cocina internacional con ingredientes orgánicos, cava subterránea y chefs galardonados estrella Michelín a su entera disposición.</p>
+					<h3 class="text-xl font-medium font-['Outfit'] mb-4 text-slate-800 dark:text-slate-100">{settingsState?.amenity_sig_1_title || "Gastronomía Premium"}</h3>
+					<p class="text-slate-500 dark:text-slate-400 leading-relaxed text-sm">{settingsState?.amenity_sig_1_desc || "Alta cocina internacional con ingredientes orgánicos, cava subterránea y chefs galardonados estrella Michelín a su entera disposición."}</p>
 				</div>
 				
 				<!-- Card 2 -->
 				<div class="relative rounded-2xl border border-slate-200/50 bg-white/70 backdrop-blur-xl p-10 text-center shadow-lg dark:border-slate-800/50 dark:bg-slate-900/80 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl hover:border-[#D4AF37]/50 group">
 					<div class="absolute -top-16 left-1/2 transform -translate-x-1/2 w-32 h-32 rounded-t-full rounded-br-full overflow-hidden border-4 border-white dark:border-slate-800 shadow-xl transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-3">
-						<img src="https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=400&q=80" alt="Spa" class="w-full h-full object-cover">
+						<img src={settingsState?.amenity_sig_2_img || "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=400&q=80"} alt="Spa" class="w-full h-full object-cover">
 					</div>
 					<div class="mt-16 mb-6">
 						<svg xmlns="http://www.w3.org/2000/svg" class="mx-auto w-8 h-8 text-[#D4AF37]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 1.374 1.41l-2.062-1.41zm19.876 0a1 1 0 1 0-1.374 1.41l2.062-1.41zM12 22A10 10 0 1 1 12 2A10 10 0 0 1 12 22zM12 4a8 8 0 1 0 0 16A8 8 0 0 0 12 4zm0 2a6 6 0 1 1 0 12A6 6 0 0 1 12 6z"/></svg>
 					</div>
-					<h3 class="text-xl font-medium font-['Outfit'] mb-4 text-slate-800 dark:text-slate-100">Spa Subterráneo</h3>
-					<p class="text-slate-500 dark:text-slate-400 leading-relaxed text-sm">Santuario holístico minimalista con circuitos termales, rituales de hidroterapia con sales volcánicas y masajes de rejuvenecimiento.</p>
+					<h3 class="text-xl font-medium font-['Outfit'] mb-4 text-slate-800 dark:text-slate-100">{settingsState?.amenity_sig_2_title || "Spa Subterráneo"}</h3>
+					<p class="text-slate-500 dark:text-slate-400 leading-relaxed text-sm">{settingsState?.amenity_sig_2_desc || "Santuario holístico minimalista con circuitos termales, rituales de hidroterapia con sales volcánicas y masajes de rejuvenecimiento."}</p>
 				</div>
 				
 				<!-- Card 3 -->
 				<div class="relative rounded-2xl border border-slate-200/50 bg-white/70 backdrop-blur-xl p-10 text-center shadow-lg dark:border-slate-800/50 dark:bg-slate-900/80 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl hover:border-[#D4AF37]/50 group mt-12 md:mt-16">
 					<div class="absolute -top-16 left-1/2 transform -translate-x-1/2 w-32 h-32 rounded-lg rotate-12 overflow-hidden border-4 border-white dark:border-slate-800 shadow-xl transition-transform duration-500 group-hover:scale-110 group-hover:rotate-0">
-						<img src="https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=400&q=80" alt="Concierge" class="w-full h-full object-cover">
+						<img src={settingsState?.amenity_sig_3_img || "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=400&q=80"} alt="Concierge" class="w-full h-full object-cover">
 					</div>
 					<div class="mt-16 mb-6">
 						<svg xmlns="http://www.w3.org/2000/svg" class="mx-auto w-8 h-8 text-[#D4AF37]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
 					</div>
-					<h3 class="text-xl font-medium font-['Outfit'] mb-4 text-slate-800 dark:text-slate-100">Concierge Privado</h3>
-					<p class="text-slate-500 dark:text-slate-400 leading-relaxed text-sm">Organización de itinerarios completamente personalizados, servicio de chofer y acceso VIP ilimitado a experiencias exclusivas.</p>
+					<h3 class="text-xl font-medium font-['Outfit'] mb-4 text-slate-800 dark:text-slate-100">{settingsState?.amenity_sig_3_title || "Concierge Privado"}</h3>
+					<p class="text-slate-500 dark:text-slate-400 leading-relaxed text-sm">{settingsState?.amenity_sig_3_desc || "Organización de itinerarios completamente personalizados, servicio de chofer y acceso VIP ilimitado a experiencias exclusivas."}</p>
 				</div>
 			</div>
 		</div>
 	</section>
 
 	<!-- Experiences Section -->
-	<section class="immersive-experiences reveal overflow-hidden relative py-24 bg-white dark:bg-[#0B0E14]">
+	<section class="immersive-experiences reveal overflow-hidden relative py-24">
 		<div class="container relative z-10">
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
 				
@@ -447,7 +549,7 @@ v>
 					<!-- Utilizamos animaciones en el style block global -->
 					<div class="video-mask-container z-10 relative overflow-hidden shadow-2xl border-[6px] border-white/40 dark:border-white/10" style="background: #000;">
 						<video 
-							src="/videos/video-activities.mp4" 
+							src={settingsState?.momentos_video_url || "/videos/video-activities.mp4"} 
 							class="w-full h-full object-cover aspect-[4/5] opacity-85" 
 							autoplay loop muted playsinline>
 						</video>
@@ -461,7 +563,7 @@ v>
 					
 					<!-- Elemento flotante decorativo -->
 					<div class="floating-image-decorator absolute -bottom-8 -left-8 w-48 h-48 rounded-2xl overflow-hidden shadow-2xl border-[6px] border-white dark:border-[#0f131a] z-20 hidden md:block">
-						<img src="https://images.unsplash.com/photo-1506059612708-99d6c258160e?q=80&w=1469&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Spa Experience" class="w-full h-full object-cover" />
+						<img src={settingsState?.momentos_img_url || "https://images.unsplash.com/photo-1506059612708-99d6c258160e?q=80&w=1469&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"} alt="Spa Experience" class="w-full h-full object-cover" />
 					</div>
 				</div>
 				
@@ -469,8 +571,160 @@ v>
 		</div>
 	</section>
 
+	<!-- Preguntas Frecuentes (FAQ) Section -->
+	<section class="faq-section reveal py-32 relative overflow-hidden">
+		<!-- Subtle decorative blur bg -->
+		<div class="absolute -top-40 -left-40 w-96 h-96 bg-[#D4AF37]/5 rounded-full blur-[100px] pointer-events-none"></div>
+		<div class="absolute -bottom-40 -right-40 w-96 h-96 bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none"></div>
 
+		<div class="container relative z-10">
+			<div class="text-center mb-20 relative">
+				<h4 class="section-label">RESOLVEMOS SUS DUDAS</h4>
+				<h2 class="text-4xl lg:text-5xl font-light font-['Outfit'] text-slate-900 dark:text-white mb-4">Preguntas <span class="font-medium italic text-[#D4AF37]">Frecuentes</span></h2>
+				<p class="max-w-2xl mx-auto text-slate-500 dark:text-slate-400 text-lg">Todo lo que necesita saber para planificar su escapada de ensueño en nuestro santuario de exclusividad.</p>
+			</div>
 
+			<div class="max-w-3xl mx-auto space-y-4">
+				{#each faqs as item, i (i)}
+					{@const isOpen = faqOpenIndex === i}
+					<div class="faq-item rounded-3xl border border-slate-200/50 bg-white/70 backdrop-blur-xl dark:border-slate-800/50 dark:bg-slate-900/60 transition-all duration-300 shadow-sm {isOpen ? 'border-[#D4AF37]/40 dark:border-[#D4AF37]/30 shadow-md shadow-[#D4AF37]/5' : ''}">
+						<!-- Accordion Trigger Button -->
+						<button 
+							type="button"
+							class="w-full flex items-start justify-between gap-4 p-6 md:p-8 text-left font-['Outfit'] focus:outline-none"
+							onclick={() => faqOpenIndex = isOpen ? null : i}
+						>
+							<span class="text-base md:text-lg font-semibold text-slate-800 dark:text-slate-100 transition-colors duration-200 break-words flex-1 {isOpen ? 'text-[#D4AF37] dark:text-[#D4AF37]' : ''}">
+								{item.question}
+							</span>
+							<div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-850 flex items-center justify-center text-slate-500 dark:text-slate-400 transition-all duration-300 flex-shrink-0 {isOpen ? 'bg-[#D4AF37]/15 dark:bg-[#D4AF37]/20 text-[#D4AF37] rotate-180' : ''}">
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+							</div>
+						</button>
+
+						<!-- Accordion Content -->
+						{#if isOpen}
+							<div 
+								class="px-6 pb-6 md:px-8 md:pb-8 border-t border-slate-100 dark:border-slate-800/40 pt-4 overflow-hidden"
+								transition:slide={{ duration: 250 }}
+							>
+								<p class="text-sm md:text-base text-slate-500 dark:text-slate-400 leading-relaxed break-words whitespace-pre-line">
+									{item.answer}
+								</p>
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		</div>
+	</section>
+
+	<!-- Encuéntranos Section (Contact & Map) -->
+	<section class="find-us-section reveal py-32 relative z-10 overflow-hidden">
+		<div class="container relative z-10">
+			<div class="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+				
+				<!-- Column 1: Contact Information Cards -->
+				<div class="lg:col-span-5 space-y-8">
+					<div>
+						<h4 class="section-label">LOCALIZACIÓN</h4>
+						<h2 class="text-4xl lg:text-5xl font-light font-['Outfit'] text-slate-900 dark:text-white leading-tight mb-6">Encuentre su <br/><span class="text-[#D4AF37] italic font-medium">paraíso privado</span>.</h2>
+						<p class="text-slate-500 dark:text-slate-400 text-lg leading-relaxed">
+							Ubicado en una de las costas más exclusivas y pintorescas del país, AFE Resort & Spa le ofrece un retiro inigualable lejos de la cotidianidad. 
+						</p>
+					</div>
+
+					<div class="space-y-6">
+						<!-- Address Card -->
+						<div class="flex items-start gap-4 p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 shadow-sm transition-all hover:shadow-md">
+							<div class="flex-shrink-0 w-12 h-12 rounded-xl bg-[#D4AF37]/10 text-[#D4AF37] flex items-center justify-center">
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+							</div>
+							<div class="min-w-0 flex-1">
+								<h4 class="font-['Outfit'] font-bold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-1">Dirección</h4>
+								<p class="text-sm text-slate-500 dark:text-slate-400 leading-snug break-words">{settingsState?.map_address || "Km. 14.5, Carretera Costera del Sol, Bahía Paraíso, Escuintla"}</p>
+							</div>
+						</div>
+
+						<!-- Phone & Email Grid -->
+						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div class="flex items-start gap-4 p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 shadow-sm transition-all hover:shadow-md">
+								<div class="flex-shrink-0 w-12 h-12 rounded-xl bg-[#D4AF37]/10 text-[#D4AF37] flex items-center justify-center">
+									<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+								</div>
+								<div class="min-w-0 flex-1">
+									<h4 class="font-['Outfit'] font-bold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-1">Teléfono</h4>
+									<p class="text-sm text-slate-500 dark:text-slate-400 font-semibold break-words">{settingsState?.map_phone || "+502 7820-2400"}</p>
+								</div>
+							</div>
+
+							<div class="flex items-start gap-4 p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 shadow-sm transition-all hover:shadow-md">
+								<div class="flex-shrink-0 w-12 h-12 rounded-xl bg-[#D4AF37]/10 text-[#D4AF37] flex items-center justify-center">
+									<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+								</div>
+								<div class="min-w-0 flex-1">
+									<h4 class="font-['Outfit'] font-bold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-1">Email</h4>
+									<a href="mailto:{settingsState?.map_email || 'concierge@aferesort.com'}" class="text-sm text-slate-500 dark:text-slate-400 hover:text-[#D4AF37] transition-colors break-all block">{settingsState?.map_email || "concierge@aferesort.com"}</a>
+								</div>
+							</div>
+						</div>
+
+						<!-- Hours Card -->
+						<div class="flex items-start gap-4 p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 shadow-sm transition-all hover:shadow-md">
+							<div class="flex-shrink-0 w-12 h-12 rounded-xl bg-[#D4AF37]/10 text-[#D4AF37] flex items-center justify-center">
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+							</div>
+							<div class="min-w-0 flex-1">
+								<h4 class="font-['Outfit'] font-bold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-1">Check-in / Recepción</h4>
+								<p class="text-sm text-slate-500 dark:text-slate-400 leading-snug break-words">{settingsState?.map_hours || "Check-in: 15:00 | Check-out: 11:00 (Recepción 24/7)"}</p>
+							</div>
+						</div>
+					</div>
+
+					<!-- External GPS Button -->
+					<div class="pt-4">
+						<a 
+							href="https://maps.google.com/?q={encodeURIComponent(settingsState?.map_address || 'AFE Resort & Spa')}" 
+							target="_blank" 
+							rel="noopener noreferrer" 
+							class="inline-flex items-center gap-3 px-8 py-4 rounded-xl bg-[#D4AF37] hover:bg-[#AA8222] text-[#0f131a] hover:text-white font-bold uppercase tracking-widest text-xs transition-all shadow-lg hover:shadow-[0_10px_20px_rgba(212,175,55,0.3)] hover:-translate-y-0.5 active:translate-y-0"
+						>
+							<span>Cómo llegar en GPS</span>
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+						</a>
+					</div>
+				</div>
+
+				<!-- Column 2: Interactive Custom Google Maps -->
+				<div class="lg:col-span-7 creative-video-wrapper relative w-full mt-12 lg:mt-0">
+					<div class="absolute -inset-8 bg-gradient-to-tr from-[#D4AF37]/15 to-transparent blur-3xl rounded-full z-0 pointer-events-none"></div>
+					
+					<div class="relative w-full aspect-video md:aspect-[4/3] rounded-[32px] overflow-hidden border-[6px] border-white/50 dark:border-white/5 shadow-2xl z-10 transition-transform duration-500 hover:scale-[1.01] hover:border-[#D4AF37]/20 group bg-slate-100 dark:bg-slate-900">
+						{#if settingsState?.map_iframe_url}
+							<iframe 
+								title="Google Maps Location"
+								src={settingsState.map_iframe_url} 
+								class="w-full h-full border-0 rounded-[26px] opacity-90 group-hover:opacity-100 transition-opacity" 
+								allowfullscreen={true} 
+								loading="lazy" 
+								referrerpolicy="no-referrer-when-downgrade"
+							></iframe>
+						{:else}
+							<iframe 
+								title="Google Maps Location Default"
+								src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15443.468711413807!2d-90.78564257121703!3d14.606828551465225!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8589078491321703%3A0xe6a8a2524458f3de!2sAFE%20Resort%20%26%20Spa!5e0!3m2!1ses-419!2sgt!4v1716654000000!5m2!1ses-419!2sgt" 
+								class="w-full h-full border-0 rounded-[26px] opacity-90 group-hover:opacity-100 transition-opacity" 
+								allowfullscreen={true} 
+								loading="lazy" 
+								referrerpolicy="no-referrer-when-downgrade"
+							></iframe>
+						{/if}
+					</div>
+				</div>
+
+			</div>
+		</div>
+	</section>
 
 	<!-- CTA Footer -->
 	<PublicFooter />
@@ -540,6 +794,11 @@ v>
 	.fade-up-delay { animation: fadeUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
 	.fade-up-delay-2 { animation: fadeUp 1s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards; opacity: 0; }
 	
+	.fade-in-slow {
+		animation: fadeInSlow 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+		opacity: 0;
+	}
+
 	.reveal {
 		opacity: 0;
 		transform: translateY(40px);
@@ -553,6 +812,17 @@ v>
 	@keyframes fadeUp {
 		from { opacity: 0; transform: translateY(30px); }
 		to { opacity: 1; transform: translateY(0); }
+	}
+
+	@keyframes fadeInSlow {
+		from { opacity: 0; transform: translateY(12px); }
+		to { opacity: 1; transform: translateY(0); }
+	}
+
+	@keyframes shimmer {
+		100% {
+			transform: translateX(100%);
+		}
 	}
 
 	@keyframes floatElement {
@@ -989,5 +1259,49 @@ v>
 		.monolith-action { padding: 1.5rem; }
 		.booking-monolith-container { position: relative; bottom: 0; margin-top: 3rem; transform: none !important; border-radius: 2.5rem; }
 		.footer-grid { grid-template-columns: 1fr; gap: 2rem; }
+	}
+
+	/* Estilos Premium para Preguntas Frecuentes (FAQ) */
+	.faq-section {
+		background: var(--bg-main);
+		margin-top: -1px;
+	}
+	.faq-item {
+		transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+	}
+	.faq-item:hover {
+		transform: translateY(-2px);
+		border-color: rgba(212, 175, 55, 0.3) !important;
+	}
+	.faq-item button {
+		outline: none;
+	}
+
+	/* Estilos Premium para Sección Encuéntranos (Mapa y Contacto) */
+	.find-us-section {
+		background: var(--bg-alt);
+		margin-top: -1px;
+	}
+	
+	/* Efecto de pulido e interacción en el mapa iframe */
+	.find-us-section iframe {
+		transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+		filter: grayscale(10%) contrast(100%);
+	}
+	.find-us-section .group:hover iframe {
+		filter: grayscale(0%) contrast(105%);
+		transform: scale(1.005);
+	}
+
+	/* Alineación y Fondos Consistentes para Momentos Únicos */
+	.immersive-experiences {
+		background: var(--bg-alt);
+		margin-top: -1px;
+	}
+
+	/* Alineación y Fondos Consistentes para Amenidades */
+	.amenities-section {
+		background: var(--bg-main);
+		margin-top: -1px;
 	}
 </style>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import { fetchPaymentDetail } from '$lib/services/admin.service';
+	import { fetchPaymentDetail, fetchSystemSettings } from '$lib/services/admin.service';
 	import type { PaymentRead } from '$lib/types/reservation';
 	import { Country, State, City } from 'country-state-city';
 	import QRCode from 'qrcode';
@@ -12,6 +12,24 @@
 	let error = $state<string | null>(null);
 	let qrCodeDataUrl = $state<string | null>(null);
 	let isSaving = $state(false);
+
+	// Información dinámica del hotel
+	let hotelInfo = $state({
+		name: 'AFE Resort & Spa',
+		phone: '2222-0000',
+		email: 'facturacionelectronica@aferesort.com'
+	});
+
+	// Derivación de iniciales del hotel para el logo
+	let hotelAbbr = $derived.by(() => {
+		const name = hotelInfo.name;
+		if (name === 'AFE Resort & Spa') return 'AFE';
+		const words = name.split(/\s+/).filter(w => w.length > 2);
+		if (words.length >= 2) {
+			return words.map(w => w[0]).join('').toUpperCase().substring(0, 4);
+		}
+		return name.substring(0, 3).toUpperCase();
+	});
 
 	$effect(() => {
 		if (payment) {
@@ -26,7 +44,7 @@
 				}
 			}
 				
-			const qrContent = `DTE: ${payment.id}\nEmisor: AFE RESORT\nReceptor: ${receptorName}\nTotal: $${payment.amount}\nFecha: ${formatDateTime(payment.created_at)}`;
+			const qrContent = `DTE: ${payment.id}\nEmisor: ${hotelInfo.name}\nReceptor: ${receptorName}\nTotal: $${payment.amount}\nFecha: ${formatDateTime(payment.created_at)}`;
 			
 			QRCode.toDataURL(qrContent, { margin: 1, width: 120 }, (err, url) => {
 				if (!err) {
@@ -38,7 +56,20 @@
 
 	onMount(async () => {
 		try {
-			payment = await fetchPaymentDetail(paymentId);
+			const [payRes, sysRes] = await Promise.all([
+				fetchPaymentDetail(paymentId),
+				fetchSystemSettings()
+			]);
+			payment = payRes;
+
+			// Cargar metadatos comerciales del hotel
+			const nameSetting = sysRes.find(s => s.key === 'hotel_name')?.value;
+			const phoneSetting = sysRes.find(s => s.key === 'hotel_phone')?.value;
+			const emailSetting = sysRes.find(s => s.key === 'hotel_email')?.value;
+
+			if (nameSetting) hotelInfo.name = nameSetting;
+			if (phoneSetting) hotelInfo.phone = phoneSetting;
+			if (emailSetting) hotelInfo.email = emailSetting;
 		} catch (err: any) {
 			error = err.message || 'Error al cargar detalle';
 		} finally {
@@ -207,7 +238,7 @@
 </script>
 
 <svelte:head>
-	<title>DTE - #{paymentId} | AFE Resort</title>
+	<title>DTE - #{paymentId} | {hotelInfo.name}</title>
 </svelte:head>
 
 {#if loading}
@@ -257,8 +288,8 @@
 			<div class="flex justify-between items-start mb-4">
 				<div class="w-[120px] h-[120px] flex items-center justify-center border border-[#e2e8f0] rounded-full">
 					<div class="text-center">
-						<div class="font-black text-xl tracking-tighter">AFE</div>
-						<div class="text-[8px] uppercase tracking-widest mt-1">RESORT & SPA</div>
+						<div class="font-black text-xl tracking-tighter">{hotelAbbr}</div>
+						<div class="text-[8px] uppercase tracking-widest mt-1">{hotelInfo.name.toUpperCase()}</div>
 					</div>
 				</div>
 
@@ -295,10 +326,10 @@
 				<div>
 					<div class="text-center font-bold text-[10px] mb-1">Emisor</div>
 					<div class="border border-[#000000] rounded-xl p-3 text-[10px] min-h-[90px] leading-tight">
-						<p><span class="font-bold">Nombre:</span> AFE RESORT S.A. DE C.V.</p>
-						<p><span class="font-bold">Correo electrónico:</span> facturacionelectronica@aferesort.com</p>
+						<p><span class="font-bold">Nombre:</span> {hotelInfo.name.toUpperCase() + (hotelInfo.name.toUpperCase().includes('S.A.') ? '' : ' S.A. DE C.V.')}</p>
+						<p><span class="font-bold">Correo electrónico:</span> {hotelInfo.email}</p>
 						<p><span class="font-bold">Dirección:</span> Final Av. La Revolución, Zona Costera, El Salvador</p>
-						<p><span class="font-bold">Teléfono:</span> 2222-0000</p>
+						<p><span class="font-bold">Teléfono:</span> {hotelInfo.phone}</p>
 						<p><span class="font-bold">NIT:</span> 0614-010101-101-1  <span class="font-bold ml-2">NRC:</span> 123456-7</p>
 						<p><span class="font-bold">Actividad económica:</span> SERVICIOS DE ALOJAMIENTO</p>
 					</div>
@@ -451,7 +482,7 @@
 
 			<!-- Pie de pagina -->
 			<div class="flex justify-between text-[10px] font-bold">
-				<div>Responsable por parte del emisor: AFE RESORT S.A. DE C.V.</div>
+				<div>Responsable por parte del emisor: {hotelInfo.name.toUpperCase() + (hotelInfo.name.toUpperCase().includes('S.A.') ? '' : ' S.A. DE C.V.')}</div>
 				<div>Nº de Documento: {payment.id}</div>
 			</div>
 			

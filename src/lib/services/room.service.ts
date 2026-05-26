@@ -1,5 +1,5 @@
 import { API_BASE } from '$lib/config/api';
-import type { RoomRead, RoomCreate, RoomUpdate, RoomAuditLog, RoomTypeRead, RoomTypeCreate, RoomSearchResponse, RoomPriceHistoryResponse } from '$lib/types/room';
+export type { RoomRead, RoomCreate, RoomUpdate, RoomAuditLog, RoomTypeRead, RoomTypeCreate, RoomSearchResponse, RoomPriceHistoryResponse } from '$lib/types/room';
 import { getStoredAuth } from '$lib/services/auth.service';
 
 export async function searchRooms(
@@ -335,4 +335,21 @@ export async function deleteAmenity(id: number): Promise<void> {
 		throw new Error(json.detail || 'Error al eliminar amenidad');
 	}
 }
+
+export async function getOccupiedRoomsToday(): Promise<number[]> {
+	const stored = getStoredAuth();
+	if (!stored) throw new Error('No autenticado');
+
+	const res = await fetch(`${API_BASE}/rooms/occupancy-today`, {
+		headers: { Authorization: `Bearer ${stored.token}` }
+	});
+
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({}));
+		throw new Error(err.detail ?? 'Error al obtener ocupación de hoy');
+	}
+
+	return await res.json();
+}
+
 

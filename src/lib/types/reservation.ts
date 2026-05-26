@@ -13,9 +13,12 @@ export interface ReservationRead {
 	tax_iva?: number;
 	tax_tourism?: number;
 	total_cost: number;
+	grand_total?: number;
 	
 	total_paid: number;
 	balance: number;
+	extras_total: number;
+	extras_pending: number;
 	status: string; // pending, confirmed, cancelled
 	created_at: string;
 	
@@ -41,6 +44,23 @@ export interface ReservationRead {
 		method: string;
 		status: string;
 		receipt_type: string | null;
+		created_at: string;
+	}>;
+	extras?: Array<{
+		id: number;
+		extra_amenity_id: number;
+		extra_amenity: {
+			id: number;
+			name: string;
+			icon?: string;
+			image_url?: string;
+			price: number;
+		};
+		quantity: number;
+		unit_price: number;
+		total_price: number;
+		payment_status: string; // 'pending' | 'paid'
+		notes?: string;
 		created_at: string;
 	}>;
 }

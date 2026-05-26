@@ -7,6 +7,7 @@
 	import AmenityIcon from '$lib/components/ui/AmenityIcon.svelte';
 	import { onMount, tick } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
+	import { fetchPublicSettings } from '$lib/services/settings.service';
 	
 	let roomId = parseInt($page.params.id);
 	let room = $state<RoomRead | null>(null);
@@ -95,8 +96,11 @@
 		return Number(room.base_price) * multiplier;
 	});
 
-	let iva = $derived(subtotal * 0.13);
-	let tourism = $derived(subtotal * 0.05);
+	let ivaRate = $state(0.13);
+	let tourismRate = $state(0.05);
+
+	let iva = $derived(subtotal * ivaRate);
+	let tourism = $derived(subtotal * tourismRate);
 	let total = $derived(subtotal + iva + tourism);
 
 	let showAmenitiesModal = $state(false);
@@ -128,6 +132,13 @@
 	onMount(async () => {
 		try {
 			room = await getRoom(roomId);
+			try {
+				const settings = await fetchPublicSettings();
+				ivaRate = settings.tax_iva_rate;
+				tourismRate = settings.tax_tourism_rate;
+			} catch (settingsErr) {
+				console.error("Error fetching public settings, using defaults:", settingsErr);
+			}
 		} catch (err: any) {
 			error = err.message;
 		} finally {
@@ -315,11 +326,11 @@
 								</div>
 							
 								<div class="breakdown-row">
-									<span class="label">IVA (13%)</span>
+									<span class="label">IVA ({(ivaRate * 100).toFixed(0)}%)</span>
 									<span class="val">${iva.toFixed(2)}</span>
 								</div>
 								<div class="breakdown-row">
-									<span class="label">Impuesto Turismo (5%)</span>
+									<span class="label">Impuesto Turismo ({(tourismRate * 100).toFixed(0)}%)</span>
 									<span class="val">${tourism.toFixed(2)}</span>
 								</div>
 								<div class="total-row">

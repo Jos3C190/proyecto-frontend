@@ -3,7 +3,7 @@
  * Requiere token JWT de un usuario con rol admin.
  */
 import { API_BASE } from '$lib/config/api';
-import type { User, RoleRead } from '$lib/types';
+export type { User, RoleRead } from '$lib/types';
 import type { PaymentRead } from '$lib/types/reservation';
 
 function getAuthHeaders(): HeadersInit {
@@ -414,4 +414,54 @@ export async function updateNotificationSetting(key: string, value: string | num
 	const body = await res.json().catch(() => ({}));
 	if (!res.ok) throw new Error(body.detail ?? 'Error al actualizar configuración');
 	return body;
+}
+
+// ---------------------------------------------------------------------------
+// Configuración General del Sistema / System Settings
+// ---------------------------------------------------------------------------
+
+export interface SystemSettingRead {
+	id: number;
+	key: string;
+	value: string;
+	category: string;
+	description?: string | null;
+	updated_at: string;
+}
+
+export async function fetchSystemSettings(): Promise<SystemSettingRead[]> {
+	const res = await fetch(`${API_BASE}/admin/settings`, {
+		headers: getAuthHeaders()
+	});
+	if (!res.ok) throw new Error('Error al cargar configuraciones del sistema');
+	return res.json();
+}
+
+export async function fetchSystemSettingsByCategory(category: string): Promise<SystemSettingRead[]> {
+	const res = await fetch(`${API_BASE}/admin/settings/category/${category}`, {
+		headers: getAuthHeaders()
+	});
+	if (!res.ok) throw new Error(`Error al cargar configuraciones de la categoría ${category}`);
+	return res.json();
+}
+
+export async function updateSystemSetting(key: string, value: string): Promise<SystemSettingRead> {
+	const res = await fetch(`${API_BASE}/admin/settings/${key}`, {
+		method: 'PUT',
+		headers: getAuthHeaders(),
+		body: JSON.stringify({ value })
+	});
+	const body = await res.json().catch(() => ({}));
+	if (!res.ok) throw new Error(body.detail ?? 'Error al actualizar configuración');
+	return body;
+}
+
+export async function bulkUpdateSystemSettings(settings: Record<string, string>): Promise<void> {
+	const res = await fetch(`${API_BASE}/admin/settings/bulk`, {
+		method: 'PUT',
+		headers: getAuthHeaders(),
+		body: JSON.stringify({ settings })
+	});
+	const body = await res.json().catch(() => ({}));
+	if (!res.ok) throw new Error(body.detail ?? 'Error al guardar configuraciones');
 }

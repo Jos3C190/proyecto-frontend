@@ -1,9 +1,11 @@
 <script lang="ts">
-	import { getPublicRooms, searchRooms, getPublicRoomTypes } from '$lib/services/room.service';
+	import { getPublicRooms, searchRooms, getPublicRoomTypes, getPublicAmenities, type AmenityRead } from '$lib/services/room.service';
 	import type { RoomRead, RoomSearchResponse } from '$lib/types/room';
 	import RoomCard from '$lib/components/rooms/RoomCard.svelte';
 	import PublicFooter from '$lib/components/layout/PublicFooter.svelte';
 	import { onMount, onDestroy } from 'svelte';
+	import { fetchPublicSettings } from '$lib/services/settings.service';
+	import AmenityIcon from '$lib/components/ui/AmenityIcon.svelte';
 	
 	import { createPersistence } from '$lib/utils/persistence';
 	
@@ -25,6 +27,8 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let dynamicRoomTypes = $state<string[]>([]);
+	let allAmenities = $state<AmenityRead[]>([]);
+	let featuredFilterIds = $state<number[]>([]);
 	
 	let selectedCategory = $state(initialState.selectedCategory);
 
@@ -59,27 +63,44 @@
 	});
 
 	// Carousel Logic
-	const carouselImages = [
+	let carouselImages = $state<string[]>([
 		'https://images.unsplash.com/photo-1611043704267-e67464e2351c?auto=format&fit=crop&w=1920&q=80',
 		'https://plus.unsplash.com/premium_photo-1682913629540-3857602b540c?auto=format&fit=crop&w=1920&q=80',
 		'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1920&q=80',
 		'https://images.unsplash.com/photo-1578458329607-534298aebc4d?auto=format&fit=crop&w=1920&q=80'
-	];
+	]);
 	let currentImageIndex = $state(0);
 	let carouselInterval: any;
 
 	function nextImage() {
+		if (carouselImages.length === 0) return;
 		currentImageIndex = (currentImageIndex + 1) % carouselImages.length;
 	}
 
 	onMount(async () => {
 		carouselInterval = setInterval(nextImage, 6000);
 		
-		// Cargar tipos dinámicos
+		// Cargar tipos dinámicos y filtros configurados
 		try {
-			dynamicRoomTypes = await getPublicRoomTypes();
+			const [typesRes, settingsRes, amenitiesRes] = await Promise.all([
+				getPublicRoomTypes(),
+				fetchPublicSettings(),
+				getPublicAmenities()
+			]);
+			dynamicRoomTypes = typesRes;
+			allAmenities = amenitiesRes;
+			
+			const filtersVal = settingsRes.featured_amenity_filters || '';
+			featuredFilterIds = filtersVal ? filtersVal.split(',').map(Number).filter(Boolean) : [];
+			
+			if (settingsRes.hero_images_rooms) {
+				const urls = settingsRes.hero_images_rooms.split(',').map(s => s.trim()).filter(Boolean);
+				if (urls.length > 0) {
+					carouselImages = urls;
+				}
+			}
 		} catch (err) {
-			console.error('No se pudieron cargar los tipos de habitación:', err);
+			console.error('Error al cargar tipos, configuraciones públicas o amenidades:', err);
 		}
 
 		if (checkIn && checkOut) {
@@ -128,19 +149,24 @@
 		loadPublicRooms();
 	}
 
-	const categories = [
-		{ id: 'all', label: 'Explorar', icon: 'M3 9.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v7h2v-9a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v9h2v-12a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v12h2a.5.5 0 0 1 .5.5v.5h-18v-.5a.5.5 0 0 1 .5-.5h2v-7z' },
-		{ id: 'populares', label: 'Populares', icon: 'M17.5 19c-2 0-4-2-4-5.2 0-3 3.5-5 3.5-9-3.5 1-6.5 4.5-6.5 8.5 0 2.5 1.5 5 4 5 1 0 1.5-1.5 1.5-1.5s.5.5 1.5.5c2.5 0 4-2.5 4-5.2 0-3-3.5-5-3.5-9-3.5 1-6.5 4.5-6.5 8.5 0 2.5 1.5 5 4 5z' },
-		{ id: 'lujo', label: 'Lujo Absoluto', icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' },
-		{ id: 'playa', label: 'Frente al Mar', icon: 'M22 20H2v-2h1c1.5 0 2.5-1 4-2s2.5-1 4 0 2.5 2 4 2 2.5-1 4-2 2.5-1 4 0 2.5 2 4 2h1v2zM6 14c-1.5 0-3-1-3-3 0-2.5 2-4.5 5-5s5 2.5 5 5c0 2-1.5 3-3 3h-4z' },
-		{ id: 'vistas', label: 'Vistas Increíbles', icon: 'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7zm10-3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z' },
-		{ id: 'familiar', label: 'Para Familias', icon: 'M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm-7 16s-1 0-1-1 1-4 8-4 8 3 8 4-1 1-1 1H5z' },
-		{ id: 'parejas', label: 'Romántico', icon: 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z' },
-		{ id: 'terraza', label: 'Con Terraza', icon: 'M4 21V9M20 21V9M4 9h16M4 14h16M4 21h16M7 9v12M17 9v12' },
-		{ id: 'mascotas', label: 'Mascotas', icon: 'M19.1 9c.5 0 .9-.4.9-.9 0-.5-.4-.9-.9-.9s-.9.4-.9.9c0 .5.4.9.9.9zM15 6c.6 0 1-.4 1-1s-.4-1-1-1-1 .4-1 1 .4 1 1 1zM9 6c.6 0 1-.4 1-1s-.4-1-1-1-1 .4-1 1 .4 1 1 1zM4.9 9c.5 0 .9-.4.9-.9 0-.5-.4-.9-.9-.9s-.9.4-.9.9c0 .5.4.9.9.9zM12 10.5c-3.3 0-6 2.7-6 6v1h12v-1c0-3.3-2.7-6-6-6zm0 5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z' },
-		{ id: 'piscina', label: 'Piscina', icon: 'M22 20H2v-2h20v2zm-2-5c-2.21 0-4-1.79-4-4 0-1.66 1.01-3.08 2.5-3.71.3-.13.5-.47.5-.8 0-.46-.37-.83-.83-.83H20c-1.3 0-2.36 1.06-2.36 2.36 0 .8.65 1.45 1.45 1.45.69 0 1.25.56 1.25 1.25 0 1.93-1.57 3.5-3.5 3.5s-3.5-1.57-3.5-3.5c0-.69.56-1.25 1.25-1.25.8 0 1.45-.65 1.45-1.45C16.05 6.46 14.99 5.4 13.69 5.4c-.46 0-.83.37-.83.83 0 .33.2.67.5.8 1.49.63 2.5 2.05 2.5 3.71 0 2.21-1.79 4-4 4s-4-1.79-4-4c0-1.66 1.01-3.08 2.5-3.71.3-.13.5-.47.5-.8 0-.46-.37-.83-.83-.83h-1.38c-1.3 0-2.36 1.06-2.36 2.36 0 .8.65 1.45 1.45 1.45.69 0 1.25.56 1.25 1.25 0 1.93-1.57 3.5-3.5 3.5S4.34 10.43 4.34 8.5c0-.69.56-1.25 1.25-1.25.8 0 1.45-.65 1.45-1.45C7.04 4.49 5.98 3.43 4.68 3.43c-.46 0-.83.37-.83.83 0 .33.2.67.5.8 1.49.63 2.5 2.05 2.5 3.71 0 2.21-1.79 4-4 4s-4-1.79-4-4' },
-		{ id: 'accesible', label: 'Accesible', icon: 'M12 2c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm9 7h-6v13h-2v-6h-2v6H9V9H3V7h18v2z' }
-	];
+	let categories = $derived.by(() => {
+		const list = [
+			{ id: 'all', label: 'Explorar', icon: 'M3 9.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v7h2v-9a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v9h2v-12a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v12h2a.5.5 0 0 1 .5.5v.5h-18v-.5a.5.5 0 0 1 .5-.5h2v-7z' }
+		];
+		
+		featuredFilterIds.forEach(id => {
+			const amenity = allAmenities.find(a => a.id === id);
+			if (amenity) {
+				list.push({
+					id: `amenity_${id}`,
+					label: amenity.name,
+					icon: amenity.icon || ''
+				});
+			}
+		});
+		
+		return list;
+	});
 
 	let filteredRooms = $derived.by(() => {
 		let list = searchResults ? searchResults.map(r => r.room) : rooms;
@@ -152,22 +178,12 @@
 
 		if (selectedCategory === 'all') return list;
 		
-		return list.filter(r => {
-			const searchString = (r.type + ' ' + (r.description || '')).toLowerCase();
-			switch (selectedCategory) {
-				case 'populares': return true; // Simulate trending by just showing all or capacity > 2
-				case 'lujo': return searchString.includes('suite') || searchString.includes('lux') || searchString.includes('lujo');
-				case 'playa': return searchString.includes('mar') || searchString.includes('playa') || searchString.includes('beach');
-				case 'vistas': return searchString.includes('vista') || searchString.includes('mar') || searchString.includes('panorámica');
-				case 'familiar': return r.capacity >= 4;
-				case 'parejas': return r.capacity === 2;
-				case 'terraza': return searchString.includes('terraza') || searchString.includes('balcón');
-				case 'mascotas': return searchString.includes('mascota') || searchString.includes('pet');
-				case 'piscina': return searchString.includes('piscina') || searchString.includes('pool') || searchString.includes('alberca');
-				case 'accesible': return searchString.includes('accesible') || searchString.includes('silla') || searchString.includes('discapacidad');
-				default: return true;
-			}
-		});
+		if (selectedCategory.startsWith('amenity_')) {
+			const amenityId = parseInt(selectedCategory.replace('amenity_', ''));
+			return list.filter(r => r.amenities.some(a => a.id === amenityId));
+		}
+		
+		return list;
 	});
 </script>
 
@@ -239,14 +255,26 @@
 <!-- Category Filter Airbnb Style -->
 <div class="category-filter-bar">
 	<div class="container">
-		<div class="categories-scroll">
+		<div 
+			class="categories-scroll"
+			onwheel={(e) => {
+				if (e.deltaY !== 0) {
+					e.preventDefault();
+					e.currentTarget.scrollLeft += e.deltaY;
+				}
+			}}
+		>
 			{#each categories as cat}
 				<button 
 					class="cat-item" 
 					class:active={selectedCategory === cat.id}
 					onclick={() => selectedCategory = cat.id}
 				>
-					<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d={cat.icon} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+					{#if cat.id === 'all'}
+						<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d={cat.icon} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+					{:else}
+						<AmenityIcon name={cat.icon} size={20} class="transition-transform duration-200" />
+					{/if}
 					<span>{cat.label}</span>
 				</button>
 			{/each}
@@ -519,14 +547,30 @@
 
 	.categories-scroll {
 		display: flex;
-		gap: 2rem;
+		gap: 2.25rem;
 		overflow-x: auto;
-		scrollbar-width: none;
 		align-items: center;
-		justify-content: center;
-		padding-bottom: 0;
+		padding-bottom: 12px; /* space for scrollbar */
+		width: 100%;
+		justify-content: flex-start;
+		scrollbar-width: thin;
+		scrollbar-color: rgba(212, 175, 55, 0.25) transparent;
 	}
-	.categories-scroll::-webkit-scrollbar { display: none; }
+	.categories-scroll::-webkit-scrollbar {
+		height: 4px;
+		display: block;
+	}
+	.categories-scroll::-webkit-scrollbar-track {
+		background: transparent;
+	}
+	.categories-scroll::-webkit-scrollbar-thumb {
+		background-color: rgba(212, 175, 55, 0.15);
+		border-radius: 20px;
+		transition: background-color 0.2s ease;
+	}
+	.categories-scroll:hover::-webkit-scrollbar-thumb {
+		background-color: rgba(212, 175, 55, 0.45);
+	}
 
 	.cat-item {
 		display: flex;
@@ -541,7 +585,8 @@
 		cursor: pointer;
 		white-space: nowrap;
 		transition: all 0.2s ease;
-		min-width: 50px;
+		min-width: 60px;
+		flex-shrink: 0;
 	}
 	.cat-item svg { width: 20px; height: 20px; opacity: 0.7; transition: transform 0.2s; }
 	.cat-item span { font-size: 0.75rem; font-weight: 500; letter-spacing: 0.2px; }

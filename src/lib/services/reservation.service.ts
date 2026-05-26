@@ -32,6 +32,43 @@ export async function createReservation(data: ReservationCreate): Promise<Reserv
 	return await res.json();
 }
 
+export async function addClientReservationExtra(resId: number, extraId: number, quantity: number, notes?: string): Promise<any> {
+	const res = await fetch(`${API_BASE}/reservations/${resId}/extras`, {
+		method: 'POST',
+		headers: getHeaders(),
+		body: JSON.stringify({ extra_amenity_id: extraId, quantity, notes })
+	});
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({}));
+		throw new Error(err.detail ?? 'Error al agregar el extra');
+	}
+	return await res.json();
+}
+
+export async function updateClientReservationExtra(resId: number, pivotId: number, quantity: number, notes?: string): Promise<any> {
+	const res = await fetch(`${API_BASE}/reservations/${resId}/extras/${pivotId}`, {
+		method: 'PATCH',
+		headers: getHeaders(),
+		body: JSON.stringify({ quantity, notes })
+	});
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({}));
+		throw new Error(err.detail ?? 'Error al actualizar el extra');
+	}
+	return await res.json();
+}
+
+export async function removeClientReservationExtra(resId: number, pivotId: number): Promise<void> {
+	const res = await fetch(`${API_BASE}/reservations/${resId}/extras/${pivotId}`, {
+		method: 'DELETE',
+		headers: getHeaders()
+	});
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({}));
+		throw new Error(err.detail ?? 'Error al eliminar el extra');
+	}
+}
+
 export async function getMyReservations(): Promise<ReservationRead[]> {
 	const res = await fetch(`${API_BASE}/reservations/my`, {
 		headers: getHeaders()
@@ -202,4 +239,42 @@ export async function cancelPayment(paymentId: number): Promise<void> {
 		const err = await res.json().catch(() => ({}));
 		throw new Error(err.detail ?? 'Error al cancelar el pago');
 	}
+}
+
+// ── Extras in Reservations (Admin) ──────────────────────────────────────
+
+export async function addAdminReservationExtra(resId: number, extraId: number, quantity: number, notes?: string): Promise<any> {
+	const res = await fetch(`${API_BASE}/admin/reservations/${resId}/extras`, {
+		method: 'POST',
+		headers: getHeaders(),
+		body: JSON.stringify({ extra_amenity_id: extraId, quantity, notes })
+	});
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({}));
+		throw new Error(err.detail ?? 'Error al agregar el extra');
+	}
+	return await res.json();
+}
+
+export async function removeAdminReservationExtra(resId: number, pivotId: number): Promise<void> {
+	const res = await fetch(`${API_BASE}/admin/reservations/${resId}/extras/${pivotId}`, {
+		method: 'DELETE',
+		headers: getHeaders()
+	});
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({}));
+		throw new Error(err.detail ?? 'Error al eliminar el extra');
+	}
+}
+
+export async function payAdminReservationExtra(resId: number, pivotId: number): Promise<any> {
+	const res = await fetch(`${API_BASE}/admin/reservations/${resId}/extras/${pivotId}/pay`, {
+		method: 'PATCH',
+		headers: getHeaders()
+	});
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({}));
+		throw new Error(err.detail ?? 'Error al marcar el extra como pagado');
+	}
+	return await res.json();
 }

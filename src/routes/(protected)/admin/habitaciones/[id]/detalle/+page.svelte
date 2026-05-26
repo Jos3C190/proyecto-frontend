@@ -2,7 +2,7 @@
 	import { page as sveltePage } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { getRoom, getRoomPriceHistory, searchRooms } from '$lib/services/room.service';
+	import { getRoom, getRoomPriceHistory, searchRooms, getOccupiedRoomsToday } from '$lib/services/room.service';
 	import type { RoomRead, SeasonPriceRead, RoomPriceHistoryResponse } from '$lib/types/room';
 	import { toast } from '$lib/stores/toast.svelte';
 	import ImageLightboxModal from '$lib/components/admin/ImageLightboxModal.svelte';
@@ -76,13 +76,13 @@
 
 			// Consultar disponibilidad para HOY
 			loadingAvailability = true;
-			const todayStr = getElSalvadorDate();
-			
-			const tomStr = getElSalvadorTomorrow();
-			
-			const search = await searchRooms(todayStr, tomStr, 1);
-			const found = search.find(r => r.room.id === id);
-			isAvailableToday = found ? found.is_available : false;
+			try {
+				const occupiedIds = await getOccupiedRoomsToday();
+				isAvailableToday = !occupiedIds.includes(id);
+			} catch (e) {
+				console.error("Error al verificar disponibilidad de hoy", e);
+				isAvailableToday = false;
+			}
 
 		} catch (err: any) {
 			error = err.message;

@@ -233,7 +233,6 @@
 						<p class="text-xs text-slate-400">Auditoría financiera inmediata.</p>
 					</div>
 					<div class="flex gap-2">
-						<button class="admin-btn-secondary !text-[10px] !px-4 !py-1.5">Exportar CSV</button>
 						<button class="admin-btn-secondary !text-[10px] !px-4 !py-1.5" onclick={goToReservations}>Ver todo</button>
 					</div>
 				</div>

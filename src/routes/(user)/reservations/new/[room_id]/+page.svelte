@@ -3,8 +3,10 @@
 	import { goto } from '$app/navigation';
 	import { getRoom } from '$lib/services/room.service';
 	import type { RoomRead } from '$lib/types/room';
-	import { createReservation } from '$lib/services/reservation.service';
+	import { createReservation, addClientReservationExtra } from '$lib/services/reservation.service';
+	import { fetchPublicExtraAmenities, type ExtraAmenityRead } from '$lib/services/extra_amenity.service';
 	import { onMount } from 'svelte';
+	import { fetchPublicSettings } from '$lib/services/settings.service';
 
 	import { createPersistence } from '$lib/utils/persistence';
 
@@ -34,6 +36,9 @@
 	});
 
 	let room = $state<RoomRead | null>(null);
+	let availableExtras = $state<ExtraAmenityRead[]>([]);
+	let selectedExtras = $state<Record<number, number>>({});
+	
 	let loading = $state(true);
 	let submitLoading = $state(false);
 	let error = $state<string | null>(null);
@@ -86,13 +91,31 @@
 		return totalSubtotal;
 	});
 
-	let iva = $derived(subtotal * 0.13);
-	let tourism = $derived(subtotal * 0.05);
-	let total = $derived(subtotal + iva + tourism);
+	let ivaRate = $state(0.13);
+	let tourismRate = $state(0.05);
+
+	let iva = $derived(subtotal * ivaRate);
+	let tourism = $derived(subtotal * tourismRate);
+	let roomTotal = $derived(subtotal + iva + tourism);
+	
+	let extrasTotal = $derived(
+		availableExtras.reduce((sum, extra) => sum + (extra.price * (selectedExtras[extra.id] || 0)), 0)
+	);
+	let extrasIva = $derived(extrasTotal * ivaRate);
+	
+	let total = $derived(roomTotal + extrasTotal + extrasIva);
 
 	onMount(async () => {
 		try {
 			room = await getRoom(roomId);
+			availableExtras = await fetchPublicExtraAmenities();
+			try {
+				const settings = await fetchPublicSettings();
+				ivaRate = settings.tax_iva_rate;
+				tourismRate = settings.tax_tourism_rate;
+			} catch (settingsErr) {
+				console.error("Error fetching public settings, using defaults:", settingsErr);
+			}
 		} catch (err: any) {
 			error = err.message;
 		} finally {
@@ -112,6 +135,15 @@
 				check_out: checkOut,
 				guests: guests
 			});
+			
+			// Process extras
+			for (const extraId in selectedExtras) {
+				const qty = selectedExtras[extraId];
+				if (qty > 0) {
+					await addClientReservationExtra(res.id, Number(extraId), qty);
+				}
+			}
+
 			// Redirigir directamente al pago (Paso 2)
 			persistence.clearState();
 			goto(`/payments/${res.id}`);
@@ -163,13 +195,27 @@
 								<span class="text-slate-800 dark:text-slate-200 font-semibold">${subtotal.toFixed(2)}</span>
 							</div>
 							<div class="flex justify-between items-center text-sm">
-								<span class="text-slate-500 dark:text-slate-400">IVA (13%)</span>
+								<span class="text-slate-500 dark:text-slate-400">IVA ({(ivaRate * 100).toFixed(0)}%)</span>
 								<span class="text-slate-800 dark:text-slate-200 font-semibold">${iva.toFixed(2)}</span>
 							</div>
 							<div class="flex justify-between items-center text-sm">
-								<span class="text-slate-500 dark:text-slate-400">Turismo (5%)</span>
+								<span class="text-slate-500 dark:text-slate-400">Turismo ({(tourismRate * 100).toFixed(0)}%)</span>
 								<span class="text-slate-800 dark:text-slate-200 font-semibold">${tourism.toFixed(2)}</span>
 							</div>
+							<div class="pt-2 border-t border-[#D4AF37]/20 flex justify-between items-center">
+								<span class="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Subtotal Habitación</span>
+								<span class="text-base font-['Outfit'] text-[#D4AF37] font-bold">${roomTotal.toFixed(2)}</span>
+							</div>
+							{#if extrasTotal > 0}
+								<div class="flex justify-between items-center text-sm pb-2 border-b border-dashed border-slate-200 dark:border-slate-700">
+									<span class="text-slate-500 dark:text-slate-400">Servicios Extras</span>
+									<span class="text-slate-800 dark:text-slate-200">${extrasTotal.toFixed(2)}</span>
+								</div>
+								<div class="flex justify-between items-center text-sm pb-2 border-b border-dashed border-slate-200 dark:border-slate-700">
+									<span class="text-slate-500 dark:text-slate-400">IVA Servicios Extras ({(ivaRate * 100).toFixed(0)}%)</span>
+									<span class="text-slate-800 dark:text-slate-200">${extrasIva.toFixed(2)}</span>
+								</div>
+							{/if}
 							<div class="pt-2 border-t border-[#D4AF37]/20 flex justify-between items-center">
 								<span class="text-base font-bold text-slate-800 dark:text-white uppercase tracking-wider">Total</span>
 								<span class="text-2xl font-['Outfit'] text-[#D4AF37] font-bold">${total.toFixed(2)}</span>
@@ -213,6 +259,59 @@
 								class="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37] transition-all dark:bg-slate-800/50 dark:border-slate-700 dark:text-white dark:focus:ring-[#D4AF37]/50" />
 							<p class="text-xs text-slate-400 mt-1">Máximo permitido: {room.capacity} huéspedes.</p>
 						</div>
+
+						{#if availableExtras.length > 0}
+							<div class="pt-6 border-t border-slate-200/50 dark:border-slate-700/50 space-y-4">
+								<div class="mb-4">
+									<h4 class="text-sm font-bold uppercase tracking-widest text-slate-800 dark:text-white">Servicios Adicionales (Opcional)</h4>
+									<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Mejora tu estancia con estos servicios exclusivos.</p>
+								</div>
+								
+								<div class="grid grid-cols-1 gap-4">
+									{#each availableExtras as extra}
+										<div class="flex items-center justify-between p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 hover:border-[#D4AF37]/50 transition-all">
+											<div class="flex items-center gap-4">
+												<div class="w-12 h-12 rounded-lg bg-white dark:bg-slate-900 flex items-center justify-center text-xl shadow-sm overflow-hidden shrink-0">
+													{#if extra.image_url}
+														<img src={extra.image_url} alt={extra.name} class="w-full h-full object-cover" />
+													{:else}
+														<span>{extra.icon || '⭐'}</span>
+													{/if}
+												</div>
+												<div>
+													<p class="text-sm font-bold text-slate-800 dark:text-slate-200">{extra.name}</p>
+													<p class="text-[10px] font-bold text-[#D4AF37] uppercase tracking-wider">${extra.price}</p>
+												</div>
+											</div>
+											<div class="flex items-center gap-3">
+												<button 
+													type="button" 
+													class="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-30"
+													onclick={() => {
+														if ((selectedExtras[extra.id] || 0) > 0) {
+															selectedExtras[extra.id]--;
+														}
+													}}
+													disabled={!(selectedExtras[extra.id] > 0)}
+												>
+													<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 12H4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+												</button>
+												<span class="w-4 text-center text-sm font-bold text-slate-800 dark:text-white">{selectedExtras[extra.id] || 0}</span>
+												<button 
+													type="button" 
+													class="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+													onclick={() => {
+														selectedExtras[extra.id] = (selectedExtras[extra.id] || 0) + 1;
+													}}
+												>
+													<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+												</button>
+											</div>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
 
 						<div class="pt-6 border-t border-slate-200/50 dark:border-slate-700/50 flex justify-end gap-4">
 							<a href="/rooms/{roomId}" class="px-6 py-3 rounded-xl border border-slate-300 bg-transparent text-sm font-bold uppercase tracking-widest text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white text-center">

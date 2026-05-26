@@ -7,6 +7,7 @@
 	import type { PaymentRead } from '$lib/types/payment';
 	import { onMount, onDestroy } from 'svelte';
 	import FiscalDataForm from '$lib/components/ui/FiscalDataForm.svelte';
+	import { fetchPublicSettings } from '$lib/services/settings.service';
 
 	let resId = $derived(Number($page.params.res_id));
 	let reservation = $state<ReservationRead | null>(null);
@@ -22,6 +23,13 @@
     let fiscalData = $state<any>(null);
     let transferFile = $state<FileList | null>(null);
 
+    let ivaRate = $state(0.13);
+    let tourismRate = $state(0.05);
+
+    let extrasBase = $derived(reservation ? Number(reservation.extras_total || 0) : 0);
+    let extrasIva = $derived(extrasBase * ivaRate);
+    let grandTotal = $derived(reservation ? Number(reservation.balance) : 0);
+
 	onMount(async () => {
         const id = Number($page.params.res_id);
         if (isNaN(id)) {
@@ -32,8 +40,15 @@
 
 		try {
 			reservation = await getReservation(id);
-			if (reservation.status !== 'pending') {
+			if (reservation.status !== 'pending' && !(reservation.status === 'confirmed' && Number(reservation.balance) > 0)) {
 				error = 'Esta reservación ya fue procesada, pagada o cancelada.';
+			}
+			try {
+				const settings = await fetchPublicSettings();
+				ivaRate = settings.tax_iva_rate;
+				tourismRate = settings.tax_tourism_rate;
+			} catch (settingsErr) {
+				console.error("Error fetching public settings, using defaults:", settingsErr);
 			}
 		} catch (err: any) {
 			error = err.message || "Error desconocido al cargar la reservación";
@@ -77,7 +92,7 @@
                 }
                 const payment = await processTransferPayment(
                     reservation.id, 
-                    Number(reservation.total_cost), 
+                    grandTotal, 
                     transferFile[0], 
                     receiptType
                 );
@@ -87,7 +102,7 @@
             } else {
                 // Manual payment (Cash)
                 const payment = await createPayment(reservation.id, {
-                    amount: Number(reservation.total_cost),
+                    amount: grandTotal,
                     method: method,
                     receipt_type: receiptType
                 });
@@ -252,6 +267,12 @@
 						Resumen del Cargo
 					</h3>
 					
+					{#if reservation.status === 'confirmed'}
+						<div class="mb-6 p-4 rounded-2xl bg-fuchsia-50/50 dark:bg-fuchsia-950/10 border border-fuchsia-100 dark:border-fuchsia-900/30 text-xs text-fuchsia-800 dark:text-fuchsia-300 leading-relaxed">
+							✨ <strong>Liquidación de Extras:</strong> Esta reservación de habitación ya está confirmada y pagada. Estás procediendo a liquidar el saldo pendiente exclusivo de tus <strong>servicios adicionales</strong>.
+						</div>
+					{/if}
+					
 					<div class="space-y-4 mb-8">
 						<div class="flex justify-between items-center pb-2 border-b border-dashed border-slate-200 dark:border-slate-700">
 							<span class="text-slate-500 dark:text-slate-400 text-sm">Cód. Reserva</span>
@@ -263,30 +284,46 @@
                             <div class="flex justify-between items-center text-sm">
                                 <span class="text-slate-500 dark:text-slate-400">Subtotal (sin IVA)</span>
                                 <span class="text-slate-800 dark:text-slate-200">
-                                    ${reservation.subtotal ? Number(reservation.subtotal).toFixed(2) : (Number(reservation.total_cost) / 1.18).toFixed(2)}
+                                    ${reservation.subtotal ? Number(reservation.subtotal).toFixed(2) : (Number(reservation.total_cost) / (1 + ivaRate + tourismRate)).toFixed(2)}
                                 </span>
                             </div>
                             <div class="flex justify-between items-center text-sm">
-                                <span class="text-slate-500 dark:text-slate-400">IVA (13%)</span>
+                                <span class="text-slate-500 dark:text-slate-400">IVA ({(ivaRate * 100).toFixed(0)}%)</span>
                                 <span class="text-slate-800 dark:text-slate-200">
-                                    ${reservation.tax_iva ? Number(reservation.tax_iva).toFixed(2) : ((Number(reservation.total_cost) / 1.18) * 0.13).toFixed(2)}
+                                    ${reservation.tax_iva ? Number(reservation.tax_iva).toFixed(2) : ((Number(reservation.total_cost) / (1 + ivaRate + tourismRate)) * ivaRate).toFixed(2)}
                                 </span>
                             </div>
                         {:else}
                             <div class="flex justify-between items-center text-sm">
                                 <span class="text-slate-500 dark:text-slate-400">Subtotal (IVA incluido)</span>
                                 <span class="text-slate-800 dark:text-slate-200">
-                                    ${((reservation.subtotal ? Number(reservation.subtotal) : (Number(reservation.total_cost) / 1.18)) * 1.13).toFixed(2)}
+                                    ${((reservation.subtotal ? Number(reservation.subtotal) : (Number(reservation.total_cost) / (1 + ivaRate + tourismRate))) * (1 + ivaRate)).toFixed(2)}
                                 </span>
                             </div>
                         {/if}
 
                         <div class="flex justify-between items-center text-sm pb-3 border-b border-dashed border-slate-200 dark:border-slate-700">
-                            <span class="text-slate-500 dark:text-slate-400">Impuesto Turismo (5%)</span>
+                            <span class="text-slate-500 dark:text-slate-400">Impuesto Turismo ({(tourismRate * 100).toFixed(0)}%)</span>
                             <span class="text-slate-800 dark:text-slate-200">
-                                ${reservation.tax_tourism ? Number(reservation.tax_tourism).toFixed(2) : ((Number(reservation.total_cost) / 1.18) * 0.05).toFixed(2)}
+                                ${reservation.tax_tourism ? Number(reservation.tax_tourism).toFixed(2) : ((Number(reservation.total_cost) / (1 + ivaRate + tourismRate)) * tourismRate).toFixed(2)}
                             </span>
                         </div>
+
+                        <!-- Additional items for extras -->
+                        {#if extrasBase > 0}
+                            <div class="flex justify-between items-center text-sm pb-3 border-b border-dashed border-slate-200 dark:border-slate-700">
+                                <span class="text-slate-500 dark:text-slate-400">Servicios Extras</span>
+                                <span class="text-slate-800 dark:text-slate-200">
+                                    ${extrasBase.toFixed(2)}
+                                </span>
+                            </div>
+                            <div class="flex justify-between items-center text-sm pb-3 border-b border-dashed border-slate-200 dark:border-slate-700">
+                                <span class="text-slate-500 dark:text-slate-400">IVA Servicios Extras ({(ivaRate * 100).toFixed(0)}%)</span>
+                                <span class="text-slate-800 dark:text-slate-200 font-semibold">
+                                    ${extrasIva.toFixed(2)}
+                                </span>
+                            </div>
+                        {/if}
 
 						<div class="flex justify-between items-center">
 							<span class="text-slate-500 dark:text-slate-400 text-sm">Estado</span>
@@ -298,7 +335,7 @@
 
 					<div class="bg-[#D4AF37]/5 dark:bg-[#D4AF37]/10 rounded-xl p-5 border border-[#D4AF37]/20 text-center">
 						<span class="block text-slate-500 dark:text-[#D4AF37]/80 text-xs font-bold uppercase tracking-widest mb-1">Total a Cancelar</span>
-						<span class="font-['Outfit'] text-4xl text-[#D4AF37] font-bold">${Number(reservation.total_cost).toFixed(2)}</span>
+						<span class="font-['Outfit'] text-4xl text-[#D4AF37] font-bold">${grandTotal.toFixed(2)}</span>
 					</div>
 				</div>
 
@@ -375,7 +412,7 @@
 									Procesando...
 								{:else}
 									<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-									{method === 'card' ? `Pagar $${Number(reservation.total_cost).toFixed(2)} con Wompi` : method === 'transfer' ? 'Subir Comprobante' : 'Confirmar Compromiso de Pago'}
+									{method === 'card' ? `Pagar $${grandTotal.toFixed(2)} con Wompi` : method === 'transfer' ? 'Subir Comprobante' : 'Confirmar Compromiso de Pago'}
 								{/if}
 							</button>
 						</div>

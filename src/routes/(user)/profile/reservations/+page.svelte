@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
+	import { fetchPublicSettings } from '$lib/services/settings.service';
 
 	import { createPersistence } from '$lib/utils/persistence';
 
@@ -20,6 +21,7 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let activeTab = $state<'all' | 'upcoming' | 'past' | 'cancelled' | 'verifying'>(initialState.activeTab);
+	let heroImage = $state('https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?q=80&w=2070&auto=format&fit=crop');
 
 	// Sync state to persistence
 	$effect(() => {
@@ -30,7 +32,14 @@
 
 	onMount(async () => {
 		try {
-			reservations = await getMyReservations();
+			const [reservationsRes, settingsRes] = await Promise.all([
+				getMyReservations(),
+				fetchPublicSettings()
+			]);
+			reservations = reservationsRes;
+			if (settingsRes.hero_image_reservations) {
+				heroImage = settingsRes.hero_image_reservations;
+			}
 		} catch (err: any) {
 			error = err.message;
 		} finally {
@@ -88,7 +97,7 @@
 	<!-- Hero Section -->
 	<header class="luxury-hero">
 		<div class="hero-bg">
-			<img src="https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?q=80&w=2070&auto=format&fit=crop" alt="Background" class="ken-burns" />
+			<img src={heroImage} alt="Background" class="ken-burns" />
 			<div class="overlay"></div>
 		</div>
 		<div class="hero-content">
@@ -206,16 +215,26 @@
 									
 								</div>
 
-								<div class="res-footer">
-									<div class="pricing">
+								<div class="res-footer flex-wrap gap-y-4">
+									<div class="pricing flex-wrap gap-x-4 gap-y-2">
 										<div class="price-item">
-											<span class="label">Total</span>
-											<span class="value">${res.total_cost}</span>
+											<span class="label">Habitación</span>
+											<span class="value text-slate-700 dark:text-slate-300 font-semibold">${Number(res.total_cost).toFixed(2)}</span>
+										</div>
+										{#if Number(res.extras_total || 0) > 0}
+											<div class="price-item">
+												<span class="label text-fuchsia-600 dark:text-fuchsia-400">Extras + IVA</span>
+												<span class="value text-fuchsia-600 dark:text-fuchsia-400 font-semibold">${(Number(res.extras_total) * 1.13).toFixed(2)}</span>
+											</div>
+										{/if}
+										<div class="price-item border-l border-slate-200 dark:border-slate-800 pl-3">
+											<span class="label font-bold">Total General</span>
+											<span class="value text-[#D4AF37] font-black">${Number(res.grand_total ?? res.total_cost).toFixed(2)}</span>
 										</div>
 										{#if (res.balance || 0) > 0}
-											<div class="price-item warning">
+											<div class="price-item warning border-l border-slate-200 dark:border-slate-800 pl-3">
 												<span class="label">Pendiente</span>
-												<span class="value">${res.balance}</span>
+												<span class="value font-bold text-red-600 dark:text-red-400">${Number(res.balance).toFixed(2)}</span>
 											</div>
 										{/if}
 									</div>

@@ -7,8 +7,12 @@
 		updateAdminReservation,
 		payAdminReservation,
 		getAdminWompiLink,
-		refundReservation
+		refundReservation,
+		addAdminReservationExtra,
+		removeAdminReservationExtra,
+		payAdminReservationExtra
 	} from '$lib/services/reservation.service';
+	import { fetchExtraAmenities, type ExtraAmenityRead } from '$lib/services/extra_amenity.service';
 	import type { ReservationRead, AdminReservationUpdate, AdminPaymentCreate } from '$lib/types/reservation';
 	import { toast } from '$lib/stores/toast.svelte';
 	import { authStore } from '$lib/stores/auth.store';
@@ -26,6 +30,14 @@
 	let isConfirmModalOpen = $state(false);
 	let modalConfig = $state<{ title: string; message: string; onConfirm: () => Promise<void> } | null>(null);
 
+	// Extras State
+	let availableExtras = $state<ExtraAmenityRead[]>([]);
+	let showAddExtraModal = $state(false);
+	let selectedExtraId = $state<number | ''>('');
+	let extraQuantity = $state(1);
+	let extraNotes = $state('');
+	let addingExtra = $state(false);
+
 	let hasReadAccess = $derived(hasPermission($authStore.user, 'reservations', 'read'));
 	let hasUpdateAccess = $derived(hasPermission($authStore.user, 'reservations', 'update'));
 
@@ -33,9 +45,6 @@
 		loading = true;
 		error = null;
 		try {
-			// Usamos getReservation (que debería traer los detalles completos incluyendo room y user si el backend los provee)
-			// Nota: En el servicio existente getReservation usa /reservations/{id}. 
-			// En un panel admin quizás queramos uno que traiga más data, pero por ahora usamos el disponible.
 			reservation = await getReservation(id);
 		} catch (err: any) {
 			error = err.message;
@@ -43,6 +52,69 @@
 		} finally {
 			loading = false;
 		}
+	}
+
+	async function loadAvailableExtras() {
+		try {
+			// Solo cargamos los activos
+			availableExtras = await fetchExtraAmenities(false);
+		} catch (err: any) {
+			console.error("Error cargando extras:", err);
+		}
+	}
+
+	async function handleAddExtra() {
+		if (!reservation || !selectedExtraId || extraQuantity < 1) return;
+		addingExtra = true;
+		try {
+			await addAdminReservationExtra(reservation.id, Number(selectedExtraId), extraQuantity, extraNotes);
+			toast.success('Servicio extra agregado exitosamente');
+			showAddExtraModal = false;
+			selectedExtraId = '';
+			extraQuantity = 1;
+			extraNotes = '';
+			await loadReservation(); // Reload to get updated extras and totals
+		} catch (e: any) {
+			toast.error(e.message || 'Error al agregar extra');
+		} finally {
+			addingExtra = false;
+		}
+	}
+
+	async function handleRemoveExtra(pivotId: number) {
+		if (!reservation) return;
+		modalConfig = {
+			title: 'Eliminar Extra',
+			message: '¿Estás seguro de eliminar este servicio extra de la reservación?',
+			onConfirm: async () => {
+				try {
+					await removeAdminReservationExtra(reservation!.id, pivotId);
+					toast.success('Servicio extra eliminado');
+					await loadReservation();
+				} catch (e: any) {
+					toast.error(e.message || 'Error al eliminar extra');
+				}
+			}
+		};
+		isConfirmModalOpen = true;
+	}
+
+	async function handlePayExtra(pivotId: number) {
+		if (!reservation) return;
+		modalConfig = {
+			title: 'Registrar Pago de Extra',
+			message: '¿Confirmas que el huésped ya pagó por este servicio extra?',
+			onConfirm: async () => {
+				try {
+					await payAdminReservationExtra(reservation!.id, pivotId);
+					toast.success('Pago de extra registrado');
+					await loadReservation();
+				} catch (e: any) {
+					toast.error(e.message || 'Error al procesar pago');
+				}
+			}
+		};
+		isConfirmModalOpen = true;
 	}
 
 	async function handleCancel() {
@@ -112,6 +184,7 @@
 			return;
 		}
 		loadReservation();
+		loadAvailableExtras();
 	});
 
 	const statusColors: Record<string, string> = {
@@ -321,6 +394,94 @@
                         {/if}
                     </div>
                 </section>
+
+                <!-- Card: Amenidades Extras -->
+                <section class="bg-white dark:bg-slate-900 rounded-[32px] p-8 shadow-sm border border-slate-100 dark:border-slate-800/50">
+                    <div class="flex items-center justify-between mb-8">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-fuchsia-50 dark:bg-fuchsia-500/10 flex items-center justify-center text-fuchsia-600 dark:text-fuchsia-500 font-bold">
+                                ⭐
+                            </div>
+                            <h3 class="text-xl font-bold font-['Outfit'] text-slate-800 dark:text-slate-100 uppercase tracking-wide">Servicios Extras</h3>
+                        </div>
+                        {#if hasUpdateAccess && (reservation.status === 'pending' || reservation.status === 'confirmed' || reservation.status === 'verifying')}
+                            <button 
+                                class="px-4 py-2 bg-fuchsia-50 dark:bg-fuchsia-900/20 text-fuchsia-600 dark:text-fuchsia-400 rounded-xl text-xs font-bold hover:bg-fuchsia-100 dark:hover:bg-fuchsia-900/40 transition-colors flex items-center gap-2 border border-fuchsia-200 dark:border-fuchsia-800/30"
+                                onclick={() => showAddExtraModal = true}
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                Agregar Extra
+                            </button>
+                        {/if}
+                    </div>
+
+                    {#if reservation.extras && reservation.extras.length > 0}
+                        <div class="space-y-4">
+                            {#each reservation.extras as extra}
+                                <div class="p-5 bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:border-fuchsia-500/20 transition-all">
+                                    <div class="flex items-start gap-4">
+                                        <div class="w-12 h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shrink-0">
+                                            {#if extra.extra_amenity.image_url}
+                                                <img src={extra.extra_amenity.image_url} alt="Extra" class="w-full h-full object-cover" />
+                                            {:else}
+                                                <span class="text-2xl">{extra.extra_amenity.icon ? '✨' : '⭐'}</span>
+                                            {/if}
+                                        </div>
+                                        <div>
+                                            <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200">{extra.extra_amenity.name}</h4>
+                                            <p class="text-[10px] text-slate-500 font-bold uppercase mt-1 tracking-widest">{extra.quantity} x ${extra.unit_price} = <span class="text-fuchsia-600 dark:text-fuchsia-400">${extra.total_price}</span></p>
+                                            {#if extra.notes}
+                                                <p class="text-xs text-slate-500 mt-2 bg-slate-100 dark:bg-slate-800/50 p-2 rounded-lg italic">"{extra.notes}"</p>
+                                            {/if}
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-3">
+                                        <span class="text-[9px] font-black uppercase px-2 py-1 rounded {extra.payment_status === 'paid' ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-orange-500/10 text-orange-600 border border-orange-500/20'}">
+                                            {extra.payment_status === 'paid' ? 'Pagado' : 'Pendiente'}
+                                        </span>
+                                        
+                                        {#if hasUpdateAccess && (reservation.status === 'pending' || reservation.status === 'confirmed' || reservation.status === 'verifying')}
+                                            <div class="flex items-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                                {#if extra.payment_status === 'pending'}
+                                                    <button 
+                                                        class="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors border border-transparent hover:border-emerald-200 dark:hover:border-emerald-800/50" 
+                                                        title="Marcar como pagado"
+                                                        onclick={() => handlePayExtra(extra.id)}
+                                                    >
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                                    </button>
+                                                {/if}
+                                                <button 
+                                                    class="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors border border-transparent hover:border-rose-200 dark:hover:border-rose-800/50" 
+                                                    title="Eliminar extra"
+                                                    onclick={() => handleRemoveExtra(extra.id)}
+                                                >
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                                </button>
+                                            </div>
+                                        {/if}
+                                    </div>
+                                </div>
+                            {/each}
+                            
+                            <div class="p-4 bg-fuchsia-50/50 dark:bg-fuchsia-900/10 border border-fuchsia-100 dark:border-fuchsia-900/20 rounded-2xl flex justify-between items-center mt-6">
+                                <div>
+                                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Extras</p>
+                                    <p class="text-xl font-black text-fuchsia-600 dark:text-fuchsia-400">${reservation.extras_total}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Pendiente de Pago</p>
+                                    <p class="text-xl font-black {reservation.extras_pending > 0 ? 'text-orange-500' : 'text-emerald-500'}">${reservation.extras_pending}</p>
+                                </div>
+                            </div>
+                        </div>
+                    {:else}
+                        <div class="text-center py-10 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl">
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest italic mb-2">Sin servicios adicionales</p>
+                            <p class="text-xs text-slate-500">Esta reservación no cuenta con extras contratados.</p>
+                        </div>
+                    {/if}
+                </section>
             </div>
 
             <!-- Columna Derecha: Finanzas e Historial (5/12) -->
@@ -337,9 +498,19 @@
                     </div>
 
                     <div class="space-y-6 relative">
-                        <div class="flex justify-between items-end border-b border-slate-100 dark:border-slate-800 pb-4">
-                            <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Costo Total de Estancia</span>
-                            <span class="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">${reservation.total_cost}</span>
+                        <div class="flex justify-between items-end border-b border-slate-100 dark:border-slate-800 pb-2">
+                            <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Hospedaje</span>
+                            <span class="text-lg font-black text-slate-900 dark:text-white tracking-tighter">${reservation.total_cost}</span>
+                        </div>
+                        {#if Number(reservation.extras_total || 0) > 0}
+                            <div class="flex justify-between items-end border-b border-slate-100 dark:border-slate-800 pb-2">
+                                <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Extras + IVA</span>
+                                <span class="text-lg font-black text-slate-900 dark:text-white tracking-tighter">${(Number(reservation.extras_total) * 1.13).toFixed(2)}</span>
+                            </div>
+                        {/if}
+                        <div class="flex justify-between items-end border-b border-slate-100 dark:border-slate-800 pb-4 mt-2">
+                            <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Costo Gran Total</span>
+                            <span class="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">${reservation.grand_total ? Number(reservation.grand_total).toFixed(2) : reservation.total_cost}</span>
                         </div>
                         <div class="flex justify-between items-end border-b border-slate-100 dark:border-slate-800 pb-4">
                             <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Pagos Registrados</span>
@@ -415,3 +586,62 @@
 	onClose={() => (isConfirmModalOpen = false)}
 	loading={cancelling || refunding}
 />
+
+<!-- Modal Añadir Extra -->
+{#if showAddExtraModal}
+	<div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+		<div class="bg-white dark:bg-[#11151d] w-full max-w-lg rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col">
+			<div class="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/50">
+				<h2 class="text-xl font-bold text-slate-900 dark:text-white font-['Outfit'] flex items-center gap-2">
+					⭐ Agregar Servicio Extra
+				</h2>
+				<button onclick={() => showAddExtraModal = false} class="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-500">
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+				</button>
+			</div>
+
+			<div class="p-6 overflow-y-auto space-y-6">
+				{#if availableExtras.length === 0}
+					<p class="text-center text-sm text-slate-500 italic">No hay servicios extras disponibles en el catálogo.</p>
+				{:else}
+					<div>
+						<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Servicio Extra <span class="text-red-500">*</span></label>
+						<select bind:value={selectedExtraId} class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-fuchsia-500/50 outline-none transition-all">
+							<option value="">-- Seleccionar --</option>
+							{#each availableExtras as extra}
+								<option value={extra.id}>{extra.name} - ${extra.price}</option>
+							{/each}
+						</select>
+					</div>
+
+					<div>
+						<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Cantidad <span class="text-red-500">*</span></label>
+						<input type="number" min="1" bind:value={extraQuantity} class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-fuchsia-500/50 outline-none transition-all font-mono" />
+					</div>
+
+					<div>
+						<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Notas / Comentarios</label>
+						<textarea bind:value={extraNotes} rows="2" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-fuchsia-500/50 outline-none transition-all resize-none" placeholder="Opcional. Ej: Alergia a las nueces..."></textarea>
+					</div>
+				{/if}
+			</div>
+
+			<div class="p-6 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-3 bg-gray-50/50 dark:bg-gray-900/50">
+				<button type="button" onclick={() => showAddExtraModal = false} class="px-5 py-2.5 text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+					Cancelar
+				</button>
+				<button 
+					type="button" 
+					onclick={handleAddExtra} 
+					disabled={addingExtra || selectedExtraId === '' || extraQuantity < 1}
+					class="px-5 py-2.5 bg-fuchsia-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-fuchsia-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2"
+				>
+					{#if addingExtra}
+						<div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+					{/if}
+					Agregar a Reservación
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}

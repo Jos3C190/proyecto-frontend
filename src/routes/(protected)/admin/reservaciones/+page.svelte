@@ -289,10 +289,17 @@
 										{/if}
 									</span>
 								</td>
-								<td class="text-right font-mono font-bold text-slate-400">${res.total_cost}</td>
-								<td class="text-right font-mono font-bold text-green-600">${res.total_paid || 0}</td>
+								<td class="text-right font-mono font-bold text-slate-600 dark:text-slate-300">
+									<div class="flex flex-col items-end">
+										<span>${Number(res.grand_total ?? res.total_cost).toFixed(2)}</span>
+										{#if Number(res.extras_total || 0) > 0}
+											<span class="text-[9px] text-fuchsia-600 dark:text-fuchsia-400 font-normal">Hab: ${Number(res.total_cost).toFixed(2)} • Ext: ${(Number(res.extras_total) * 1.13).toFixed(2)}</span>
+										{/if}
+									</div>
+								</td>
+								<td class="text-right font-mono font-bold text-green-600">${Number(res.total_paid || 0).toFixed(2)}</td>
 								<td class="text-right font-mono font-bold {res.balance < 0 ? 'text-indigo-600' : (res.balance > 0 ? 'text-red-500' : 'text-slate-400')}">
-									{res.balance < 0 ? `-$${Math.abs(res.balance)}` : `$${res.balance || 0}`}
+									{res.balance < 0 ? `-$${Math.abs(res.balance).toFixed(2)}` : `$${Number(res.balance || 0).toFixed(2)}`}
 								</td>
 								<td class="whitespace-nowrap">
 									<div class="flex justify-center gap-1">

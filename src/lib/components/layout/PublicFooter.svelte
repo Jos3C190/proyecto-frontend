@@ -1,4 +1,16 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
+    import { fetchPublicSettings } from '$lib/services/settings.service';
+
+    let socialSettings = $state<any>(null);
+
+    onMount(async () => {
+        try {
+            socialSettings = await fetchPublicSettings();
+        } catch (e) {
+            console.error('Error al cargar enlaces sociales en footer:', e);
+        }
+    });
 </script>
 
 <footer class="luxury-footer relative z-10">
@@ -22,9 +34,9 @@
         <div class="social-col">
             <h4>Síguenos</h4>
             <div class="social-links">
-                <a href="#">Instagram</a>
-                <a href="#">Twitter</a>
-                <a href="#">Facebook</a>
+                <a href={socialSettings?.social_instagram || "#"} target="_blank" rel="noopener noreferrer">Instagram</a>
+                <a href={socialSettings?.social_twitter || "#"} target="_blank" rel="noopener noreferrer">Twitter</a>
+                <a href={socialSettings?.social_facebook || "#"} target="_blank" rel="noopener noreferrer">Facebook</a>
             </div>
         </div>
     </div>

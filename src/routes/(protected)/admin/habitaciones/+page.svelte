@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getAdminRooms, deleteRoom, getAdminRoomTypes, searchRooms } from '$lib/services/room.service';
+	import { getAdminRooms, deleteRoom, getAdminRoomTypes, searchRooms, getOccupiedRoomsToday } from '$lib/services/room.service';
 	import type { RoomRead, RoomTypeRead } from '$lib/types/room';
 	import { onMount } from 'svelte';
 	import { getElSalvadorDate, getElSalvadorTomorrow } from '$lib/utils/date';
@@ -141,11 +141,9 @@
 
 	let availableTodayIds = $state<number[]>([]);
 	async function checkTodayAvailability() {
-		const today = getElSalvadorDate();
-		const tomorrow = getElSalvadorTomorrow();
 		try {
-			const results = await searchRooms(today, tomorrow, 1);
-			availableTodayIds = results.map(res => res.room.id);
+			const occupiedIds = await getOccupiedRoomsToday();
+			availableTodayIds = rooms.map(r => r.id).filter(id => !occupiedIds.includes(id));
 		} catch (e) {
 			console.error("Error al verificar disponibilidad de hoy", e);
 		}

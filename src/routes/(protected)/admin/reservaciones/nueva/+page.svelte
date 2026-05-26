@@ -6,8 +6,11 @@
 		createAdminReservation, 
 		getAdminWompiLink, 
 		payAdminReservation,
-        getReservation
+        getReservation,
+		addAdminReservationExtra,
+		removeAdminReservationExtra
 	} from '$lib/services/reservation.service';
+	import { fetchExtraAmenities, type ExtraAmenityRead } from '$lib/services/extra_amenity.service';
 	import { searchRooms } from '$lib/services/room.service';
     import { fetchUsers, updateUser } from '$lib/services/admin.service';
 	import FiscalDataForm from '$lib/components/ui/FiscalDataForm.svelte';
@@ -19,13 +22,15 @@
 	import { getElSalvadorDate } from '$lib/utils/date';
 	import '../../adminPage.css';
 
-	let createStep = $state<1 | 2>(1);
+	let createStep = $state<1 | 2 | 3>(1);
 	let loadingData = $state(true);
 	let formLoading = $state(false);
 	let formError = $state<string | null>(null);
 
 	// Data masters
 	let users = $state<any[]>([]);
+	let availableExtrasList = $state<ExtraAmenityRead[]>([]);
+	let addingExtra = $state(false);
 	
 	// Step 1 Form
 	let formData = $state({
@@ -87,15 +92,16 @@
 
 		try {
 			users = await fetchUsers();
+			availableExtrasList = await fetchExtraAmenities(false);
 			
 			const urlResId = $sveltePage.url.searchParams.get('resId');
 			const urlStep = $sveltePage.url.searchParams.get('step');
 			
-			if (urlResId && urlStep === '2') {
+			if (urlResId && urlStep === '2') { // Legacy behavior, if step=2 we assume they want payment (now step 3)
 				const res = await getReservation(Number(urlResId));
 				pendingCreatedReservation = res;
 				paymentData.amount = Number(res.balance);
-				createStep = 2;
+				createStep = 3;
 			}
 		} catch (err: any) {
 			toast.error('Error al inicializar formulario: ' + err.message);
@@ -140,14 +146,49 @@
 				guests: Number(formData.guests)
 			};
 			pendingCreatedReservation = await createAdminReservation(payload);
-			paymentData.amount = Number(pendingCreatedReservation.balance);
-			createStep = 2;
-			toast.success('Reserva originada. Proceda al pago.');
+			createStep = 2; // Move to Extras step
+			toast.success('Reserva originada. Puede agregar extras.');
 		} catch (e: any) {
 			toast.error(e.message);
 		} finally {
 			formLoading = false;
 		}
+	}
+
+	async function handleAddExtra(extraId: number, quantity: number, notes?: string) {
+		if (!pendingCreatedReservation) return;
+		addingExtra = true;
+		try {
+			await addAdminReservationExtra(pendingCreatedReservation.id, extraId, quantity, notes);
+			toast.success('Servicio extra agregado');
+			// Refresh reservation
+			pendingCreatedReservation = await getReservation(pendingCreatedReservation.id);
+		} catch (e: any) {
+			toast.error(e.message || 'Error al agregar extra');
+		} finally {
+			addingExtra = false;
+		}
+	}
+
+	async function handleRemoveExtra(pivotId: number) {
+		if (!pendingCreatedReservation) return;
+		addingExtra = true;
+		try {
+			await removeAdminReservationExtra(pendingCreatedReservation.id, pivotId);
+			toast.success('Servicio extra eliminado');
+			// Refresh reservation
+			pendingCreatedReservation = await getReservation(pendingCreatedReservation.id);
+		} catch (e: any) {
+			toast.error(e.message || 'Error al eliminar extra');
+		} finally {
+			addingExtra = false;
+		}
+	}
+
+	function goToStep3() {
+		if (!pendingCreatedReservation) return;
+		paymentData.amount = Number(pendingCreatedReservation.balance);
+		createStep = 3;
 	}
 
 	async function handleConfirmPayment(e: Event) {
@@ -222,12 +263,17 @@
             <div class="flex items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-100 dark:border-slate-800">
                 <div class="flex items-center gap-3 px-6 py-3 rounded-xl transition-all {createStep === 1 ? 'bg-[#D4AF37] text-white shadow-lg shadow-[#D4AF37]/20 scale-105' : 'text-slate-400'}">
                     <span class="w-5 h-5 rounded-full border-2 border-current flex items-center justify-center text-[10px] font-black">1</span>
-                    <span class="text-[10px] font-black uppercase tracking-widest whitespace-nowrap">Origen y Unidad</span>
+                    <span class="text-[10px] font-black uppercase tracking-widest whitespace-nowrap">Origen</span>
                 </div>
-                <div class="w-8 h-px bg-slate-100 dark:bg-slate-800"></div>
+                <div class="w-4 h-px bg-slate-100 dark:bg-slate-800"></div>
                 <div class="flex items-center gap-3 px-6 py-3 rounded-xl transition-all {createStep === 2 ? 'bg-[#D4AF37] text-white shadow-lg shadow-[#D4AF37]/20 scale-105' : 'text-slate-400'}">
                     <span class="w-5 h-5 rounded-full border-2 border-current flex items-center justify-center text-[10px] font-black">2</span>
-                    <span class="text-[10px] font-black uppercase tracking-widest whitespace-nowrap">Garantía / Pago</span>
+                    <span class="text-[10px] font-black uppercase tracking-widest whitespace-nowrap">Extras</span>
+                </div>
+                <div class="w-4 h-px bg-slate-100 dark:bg-slate-800"></div>
+                <div class="flex items-center gap-3 px-6 py-3 rounded-xl transition-all {createStep === 3 ? 'bg-[#D4AF37] text-white shadow-lg shadow-[#D4AF37]/20 scale-105' : 'text-slate-400'}">
+                    <span class="w-5 h-5 rounded-full border-2 border-current flex items-center justify-center text-[10px] font-black">3</span>
+                    <span class="text-[10px] font-black uppercase tracking-widest whitespace-nowrap">Pago</span>
                 </div>
             </div>
         </div>
@@ -472,7 +518,126 @@
                         </div>
                     </div>
                 </div>
-            {:else}
+            {:else if createStep === 2}
+                <!-- Step 2: Extras -->
+                <div class="lg:col-span-8 space-y-8 fade-in">
+                    <div class="bg-white dark:bg-slate-900 rounded-[32px] p-8 shadow-sm border border-slate-100 dark:border-slate-800">
+                        <h2 class="text-xl font-black text-slate-900 dark:text-white tracking-tight mb-2">Servicios Extras</h2>
+                        <p class="text-xs text-slate-500 mb-8">Agrega servicios adicionales a la reservación. Estos tendrán su propio costo que se sumará al folio.</p>
+
+                        <div class="space-y-6">
+                            {#if availableExtrasList.length === 0}
+                                <p class="text-sm text-slate-500 italic">No hay servicios extras disponibles en el catálogo.</p>
+                            {:else}
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {#each availableExtrasList as extra}
+                                        <div class="p-4 rounded-[24px] border border-slate-100 dark:border-slate-800 hover:border-fuchsia-500/30 hover:bg-fuchsia-50/30 dark:hover:bg-fuchsia-900/10 transition-all group flex flex-col justify-between">
+                                            <div class="flex items-start gap-4 mb-4">
+                                                <div class="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-2xl overflow-hidden shrink-0">
+                                                    {#if extra.image_url}
+                                                        <img src={extra.image_url} alt={extra.name} class="w-full h-full object-cover" />
+                                                    {:else}
+                                                        <span>{extra.icon || '⭐'}</span>
+                                                    {/if}
+                                                </div>
+                                                <div>
+                                                    <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200 leading-tight">{extra.name}</h4>
+                                                    <p class="text-xs text-slate-500 line-clamp-2 mt-1">{extra.description || 'Sin descripción'}</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center justify-between mt-auto border-t border-slate-100 dark:border-slate-800 pt-4">
+                                                <span class="text-lg font-black text-fuchsia-600 dark:text-fuchsia-400">${extra.price}</span>
+                                                <button 
+                                                    class="px-4 py-2 bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
+                                                    onclick={() => handleAddExtra(extra.id, 1)}
+                                                    disabled={addingExtra}
+                                                >
+                                                    Agregar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    {/each}
+                                </div>
+                            {/if}
+                        </div>
+
+                        <!-- Lista de extras ya agregados -->
+                        {#if pendingCreatedReservation?.extras && pendingCreatedReservation.extras.length > 0}
+                            <div class="mt-10 pt-8 border-t border-slate-100 dark:border-slate-800">
+                                <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Extras en la Reservación</h3>
+                                <div class="space-y-3">
+                                    {#each pendingCreatedReservation.extras as extraItem}
+                                        <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-950/40 rounded-xl border border-slate-100 dark:border-slate-800">
+                                            <div class="flex items-center gap-3">
+                                                <span class="text-lg">{extraItem.extra_amenity.icon || '⭐'}</span>
+                                                <div>
+                                                    <p class="text-sm font-bold text-slate-800 dark:text-slate-200">{extraItem.extra_amenity.name}</p>
+                                                    <p class="text-[10px] text-slate-500 font-bold uppercase">{extraItem.quantity} x ${extraItem.unit_price} = <span class="text-fuchsia-600">${extraItem.total_price}</span></p>
+                                                </div>
+                                            </div>
+                                            <button 
+                                                class="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                                                onclick={() => handleRemoveExtra(extraItem.id)}
+                                                disabled={addingExtra}
+                                            >
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2"/></svg>
+                                            </button>
+                                        </div>
+                                    {/each}
+                                </div>
+                            </div>
+                        {/if}
+
+                        <div class="mt-8 pt-8 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                            <button 
+                                class="admin-btn px-8 shadow-xl"
+                                onclick={goToStep3}
+                            >
+                                Continuar al Pago
+                                <svg class="w-4 h-4 ml-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resumen Lateral Sticky (Step 2) -->
+                <div class="lg:col-span-4 sticky top-8 space-y-6 fade-in">
+                    <div class="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 p-8 shadow-2xl shadow-[#D4AF37]/5 overflow-hidden relative">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-[#D4AF37]/5 rounded-bl-[100px] -mr-8 -mt-8"></div>
+                        
+                        <h3 class="text-xs font-black uppercase tracking-[0.3em] text-slate-400 mb-8 flex items-center gap-3">
+                            <span class="w-2 h-2 rounded-full bg-[#D4AF37] animate-pulse"></span>
+                            Folio Generado
+                        </h3>
+
+                        <div class="space-y-6 relative">
+                            <!-- ID -->
+                            <div class="text-center bg-slate-50 dark:bg-slate-950 p-6 rounded-[24px]">
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Código de Reserva</p>
+                                <p class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{pendingCreatedReservation?.unique_id}</p>
+                            </div>
+
+                            <div class="pt-4 border-t border-slate-100 dark:border-slate-800">
+                                <div class="flex justify-between items-center mb-2">
+                                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Estancia</p>
+                                    <p class="text-sm font-bold text-slate-800 dark:text-slate-200">${pendingCreatedReservation?.total_cost}</p>
+                                </div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Extras</p>
+                                    <p class="text-sm font-bold text-fuchsia-600 dark:text-fuchsia-400">${(Number(pendingCreatedReservation?.extras_total || 0) * 1.13).toFixed(2)}</p>
+                                </div>
+                                
+                                <div class="flex justify-between items-end mt-6">
+                                    <p class="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Total Global</p>
+                                    <p class="text-3xl font-black text-[#D4AF37] tracking-tighter">
+                                        ${Number(pendingCreatedReservation?.balance).toFixed(2)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {:else if createStep === 3}
                 <!-- Step 2: Payment (Split Layout like Step 1) -->
                 <div class="lg:col-span-8 space-y-8 fade-in">
                     <div class="bg-white dark:bg-slate-900 rounded-[32px] p-8 shadow-sm border border-slate-100 dark:border-slate-800">
@@ -592,7 +757,7 @@
                                 <div class="flex justify-between items-end mb-8">
                                     <p class="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Saldo Restante</p>
                                     <p class="text-3xl font-black text-[#D4AF37] tracking-tighter">
-                                        ${pendingCreatedReservation?.total_cost}
+                                        ${Number(pendingCreatedReservation?.balance).toFixed(2)}
                                     </p>
                                 </div>
 
