@@ -100,7 +100,7 @@
 			if (urlResId && urlStep === '2') { // Legacy behavior, if step=2 we assume they want payment (now step 3)
 				const res = await getReservation(Number(urlResId));
 				pendingCreatedReservation = res;
-				paymentData.amount = Number(res.balance);
+				paymentData.amount = Number(Number(res.balance).toFixed(2));
 				createStep = 3;
 			}
 		} catch (err: any) {
@@ -185,9 +185,48 @@
 		}
 	}
 
+	function getAddedExtra(extraId: number) {
+		if (!pendingCreatedReservation?.extras) return null;
+		return pendingCreatedReservation.extras.find((e: any) => e.extra_amenity.id === extraId);
+	}
+
+	async function handleIncrementExtra(extraId: number) {
+		const added = getAddedExtra(extraId);
+		if (!added || !pendingCreatedReservation) return;
+		addingExtra = true;
+		try {
+			const newQty = added.quantity + 1;
+			await removeAdminReservationExtra(pendingCreatedReservation.id, added.id);
+			await addAdminReservationExtra(pendingCreatedReservation.id, extraId, newQty);
+			pendingCreatedReservation = await getReservation(pendingCreatedReservation.id);
+		} catch (e: any) {
+			toast.error(e.message || 'Error al actualizar cantidad');
+		} finally {
+			addingExtra = false;
+		}
+	}
+
+	async function handleDecrementExtra(extraId: number) {
+		const added = getAddedExtra(extraId);
+		if (!added || !pendingCreatedReservation) return;
+		addingExtra = true;
+		try {
+			const newQty = added.quantity - 1;
+			await removeAdminReservationExtra(pendingCreatedReservation.id, added.id);
+			if (newQty > 0) {
+				await addAdminReservationExtra(pendingCreatedReservation.id, extraId, newQty);
+			}
+			pendingCreatedReservation = await getReservation(pendingCreatedReservation.id);
+		} catch (e: any) {
+			toast.error(e.message || 'Error al actualizar cantidad');
+		} finally {
+			addingExtra = false;
+		}
+	}
+
 	function goToStep3() {
 		if (!pendingCreatedReservation) return;
-		paymentData.amount = Number(pendingCreatedReservation.balance);
+		paymentData.amount = Number(Number(pendingCreatedReservation.balance).toFixed(2));
 		createStep = 3;
 	}
 
@@ -414,7 +453,7 @@
                                                                 <p class="text-[9px] font-bold text-[#AA8222]">${(res.total_price / nightsCount).toFixed(2)} / noche</p>
                                                             {/if}
                                                         </div>
-                                                        <p class="text-xl font-black text-slate-900 dark:text-white tracking-tight">${res.total_price}</p>
+                                                        <p class="text-xl font-black text-slate-900 dark:text-white tracking-tight">${Number(res.total_price).toFixed(2)}</p>
                                                     </div>
                                                     <span class="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-lg">Disponible</span>
                                                 </div>
@@ -485,7 +524,7 @@
                                 <div class="flex justify-between items-end mb-8">
                                     <p class="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Total proyectado</p>
                                     <p class="text-3xl font-black text-[#D4AF37] tracking-tighter">
-                                        ${selectedRoomInfo?.total_price || '0.00'}
+                                        ${selectedRoomInfo?.total_price ? Number(selectedRoomInfo.total_price).toFixed(2) : '0.00'}
                                     </p>
                                 </div>
 
@@ -531,7 +570,7 @@
                             {:else}
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {#each availableExtrasList as extra}
-                                        <div class="p-4 rounded-[24px] border border-slate-100 dark:border-slate-800 hover:border-fuchsia-500/30 hover:bg-fuchsia-50/30 dark:hover:bg-fuchsia-900/10 transition-all group flex flex-col justify-between">
+                                        <div class="p-4 rounded-[24px] border border-slate-100 dark:border-slate-800 hover:border-[#D4AF37]/30 hover:bg-[#D4AF37]/5 dark:hover:bg-[#D4AF37]/10 transition-all group flex flex-col justify-between">
                                             <div class="flex items-start gap-4 mb-4">
                                                 <div class="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-2xl overflow-hidden shrink-0">
                                                     {#if extra.image_url}
@@ -546,56 +585,41 @@
                                                 </div>
                                             </div>
                                             <div class="flex items-center justify-between mt-auto border-t border-slate-100 dark:border-slate-800 pt-4">
-                                                <span class="text-lg font-black text-fuchsia-600 dark:text-fuchsia-400">${extra.price}</span>
-                                                <button 
-                                                    class="px-4 py-2 bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
-                                                    onclick={() => handleAddExtra(extra.id, 1)}
-                                                    disabled={addingExtra}
-                                                >
-                                                    Agregar
-                                                </button>
+                                                <span class="text-lg font-black text-[#D4AF37] dark:text-[#D4AF37]">${extra.price}</span>
+                                                {#if getAddedExtra(extra.id)}
+                                                    <div class="flex items-center gap-2 bg-[#D4AF37]/10 p-1 rounded-xl border border-[#D4AF37]/20 select-none">
+                                                        <button 
+                                                            type="button"
+                                                            class="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/80 hover:border-[#D4AF37] dark:hover:border-[#D4AF37] text-slate-700 dark:text-slate-200 flex items-center justify-center transition-all disabled:opacity-50"
+                                                            onclick={() => handleDecrementExtra(extra.id)}
+                                                            disabled={addingExtra}
+                                                        >
+                                                            <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>
+                                                        </button>
+                                                        <span class="w-6 text-center text-xs font-black text-[#D4AF37] tabular-nums">{getAddedExtra(extra.id)?.quantity || 0}</span>
+                                                        <button 
+                                                            type="button"
+                                                            class="w-8 h-8 rounded-lg bg-[#D4AF37] hover:bg-[#AA8222] text-white flex items-center justify-center transition-all disabled:opacity-50"
+                                                            onclick={() => handleIncrementExtra(extra.id)}
+                                                            disabled={addingExtra}
+                                                        >
+                                                            <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                                                        </button>
+                                                    </div>
+                                                {:else}
+                                                    <button 
+                                                        class="px-4 py-2 bg-[#D4AF37] hover:bg-[#AA8222] text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
+                                                        onclick={() => handleAddExtra(extra.id, 1)}
+                                                        disabled={addingExtra}
+                                                    >
+                                                        Agregar
+                                                    </button>
+                                                {/if}
                                             </div>
                                         </div>
                                     {/each}
                                 </div>
                             {/if}
-                        </div>
-
-                        <!-- Lista de extras ya agregados -->
-                        {#if pendingCreatedReservation?.extras && pendingCreatedReservation.extras.length > 0}
-                            <div class="mt-10 pt-8 border-t border-slate-100 dark:border-slate-800">
-                                <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Extras en la Reservación</h3>
-                                <div class="space-y-3">
-                                    {#each pendingCreatedReservation.extras as extraItem}
-                                        <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-950/40 rounded-xl border border-slate-100 dark:border-slate-800">
-                                            <div class="flex items-center gap-3">
-                                                <span class="text-lg">{extraItem.extra_amenity.icon || '⭐'}</span>
-                                                <div>
-                                                    <p class="text-sm font-bold text-slate-800 dark:text-slate-200">{extraItem.extra_amenity.name}</p>
-                                                    <p class="text-[10px] text-slate-500 font-bold uppercase">{extraItem.quantity} x ${extraItem.unit_price} = <span class="text-fuchsia-600">${extraItem.total_price}</span></p>
-                                                </div>
-                                            </div>
-                                            <button 
-                                                class="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
-                                                onclick={() => handleRemoveExtra(extraItem.id)}
-                                                disabled={addingExtra}
-                                            >
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2"/></svg>
-                                            </button>
-                                        </div>
-                                    {/each}
-                                </div>
-                            </div>
-                        {/if}
-
-                        <div class="mt-8 pt-8 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-                            <button 
-                                class="admin-btn px-8 shadow-xl"
-                                onclick={goToStep3}
-                            >
-                                Continuar al Pago
-                                <svg class="w-4 h-4 ml-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -620,11 +644,11 @@
                             <div class="pt-4 border-t border-slate-100 dark:border-slate-800">
                                 <div class="flex justify-between items-center mb-2">
                                     <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Estancia</p>
-                                    <p class="text-sm font-bold text-slate-800 dark:text-slate-200">${pendingCreatedReservation?.total_cost}</p>
+                                    <p class="text-sm font-bold text-slate-800 dark:text-slate-200">${pendingCreatedReservation?.total_cost ? Number(pendingCreatedReservation.total_cost).toFixed(2) : '0.00'}</p>
                                 </div>
                                 <div class="flex justify-between items-center mb-2">
                                     <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Extras</p>
-                                    <p class="text-sm font-bold text-fuchsia-600 dark:text-fuchsia-400">${(Number(pendingCreatedReservation?.extras_total || 0) * 1.13).toFixed(2)}</p>
+                                    <p class="text-sm font-bold text-[#D4AF37] dark:text-[#D4AF37]">${(Number(pendingCreatedReservation?.extras_total || 0) * 1.13).toFixed(2)}</p>
                                 </div>
                                 
                                 <div class="flex justify-between items-end mt-6">
@@ -636,6 +660,41 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Lista de extras ya agregados (Sticky sidebar) -->
+                    {#if pendingCreatedReservation?.extras && pendingCreatedReservation.extras.length > 0}
+                        <div class="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 p-6 shadow-xl space-y-4 text-left">
+                            <h3 class="text-[10px] font-black uppercase tracking-widest text-[#D4AF37] mb-2">Extras en la Reservación</h3>
+                            <div class="space-y-3 max-h-60 overflow-y-auto pr-1">
+                                {#each pendingCreatedReservation.extras as extraItem}
+                                    <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-950/40 rounded-xl border border-slate-100 dark:border-slate-800">
+                                        <div class="flex items-center gap-2.5 text-left">
+                                            <span class="text-lg">{extraItem.extra_amenity.icon || '⭐'}</span>
+                                            <div>
+                                                <p class="text-xs font-bold text-slate-800 dark:text-slate-200 line-clamp-1">{extraItem.extra_amenity.name}</p>
+                                                <p class="text-[9px] text-slate-500 font-bold uppercase tracking-tight">{extraItem.quantity} x ${extraItem.unit_price} = <span class="text-[#D4AF37] font-black">${extraItem.total_price}</span></p>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            class="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors shrink-0"
+                                            onclick={() => handleRemoveExtra(extraItem.id)}
+                                            disabled={addingExtra}
+                                        >
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2"/></svg>
+                                        </button>
+                                    </div>
+                                {/each}
+                            </div>
+                        </div>
+                    {/if}
+
+                    <button 
+                        class="admin-btn w-full !py-4 shadow-2xl transition-all"
+                        onclick={goToStep3}
+                    >
+                        Continuar al Pago
+                        <svg class="w-4 h-4 ml-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
                 </div>
             {:else if createStep === 3}
                 <!-- Step 2: Payment (Split Layout like Step 1) -->

@@ -9,12 +9,24 @@
 	import { goto } from '$app/navigation';
 	import { authStore } from '$lib/stores/auth.store';
 	import { hasPermission, getDisplayName } from '$lib/types';
+	import { HelpCircle } from 'lucide-svelte';
 	import '../admin/adminPage.css';
 
 	let stats = $state<DashboardStats | null>(null);
 	let recentReservations = $state<ReservationRead[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+
+	// Modo de proyección del gráfico: 'accrual' (Devengado) o 'cash' (Caja/Tesorería)
+	let forecastMode = $state<'accrual' | 'cash'>('accrual');
+
+	// Filtro dinámico de la tendencia adaptado al modo seleccionado
+	let trendData = $derived(
+		stats ? stats.revenue_trend.map(item => ({
+			...item,
+			amount: forecastMode === 'accrual' ? item.amount : (item.amount_cash ?? item.amount)
+		})) : []
+	);
 
 	// Checar si el usuario tiene permiso explícito sobre el recurso dashboard
 	let hasDashboardAccess = $derived(hasPermission($authStore.user, 'dashboard', 'read'));
@@ -167,58 +179,180 @@
 				<div class="admin-section h-full">
 					<div class="flex items-center justify-between mb-8">
 						<div>
-							<h2 class="admin-section-title !mb-1">Tendencia y Pronóstico</h2>
-							<p class="text-xs text-slate-400 uppercase tracking-widest font-bold">Histórico 30d + Proyección 7d</p>
-						</div>
-						<div class="flex gap-2">
-							<div class="flex items-center gap-2 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-800">
-								<div class="h-2 w-2 rounded-full bg-[#D4AF37]"></div>
-								<span class="text-[10px] font-bold text-slate-600 dark:text-slate-300">REAL</span>
+							<div class="flex items-center gap-2 group/title relative">
+								<h2 class="admin-section-title !mb-0">Tendencia y Pronóstico</h2>
+								<div class="relative group/tooltip">
+									<button type="button" class="text-slate-400 hover:text-[#D4AF37] transition-colors focus:outline-none flex items-center justify-center p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800/50">
+										<HelpCircle class="w-4 h-4 cursor-help" />
+									</button>
+									
+									<!-- Tooltip Container (Opens Downwards to avoid Navbar collision) -->
+									<div class="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-80 p-4 bg-[#11151d] dark:bg-[#11151d] text-white rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 opacity-0 pointer-events-none group-hover/tooltip:opacity-100 transition-all duration-300 transform scale-95 origin-top group-hover/tooltip:scale-100 z-50 leading-relaxed text-xs">
+										<!-- Triangle arrow pointing up -->
+										<div class="absolute bottom-full left-1/2 -translate-x-1/2 border-8 border-transparent border-b-[#11151d]"></div>
+										
+										<div class="font-bold text-[#D4AF37] text-[13px] mb-2 flex items-center gap-1.5 font-['Outfit']">
+											Inteligencia Financiera Híbrida
+										</div>
+										
+										<div class="space-y-2 text-slate-300 text-left">
+											<p>
+												<strong class="text-white">¿Para qué sirve?</strong><br>
+												Visualiza la salud financiera del hotel comparando ingresos históricos reales con dos tipos de proyecciones futuras (seleccionables con el switch).
+											</p>
+											<p>
+												<strong class="text-white">Histórico (REAL):</strong><br>
+												Suma de todos los pagos reales completados de los últimos 30 días (alojamiento + extras + incidentales).
+											</p>
+											<p>
+												<strong class="text-white">Proyección (FORECAST) - Modos:</strong>
+											</p>
+											<ul class="list-disc pl-4 space-y-1.5">
+												<li>
+													<strong class="text-[#D4AF37]">Devengado (Hab):</strong> Suma el costo total de alojamiento de las futuras reservas. Mide el volumen y ocupación de negocio realizable.
+												</li>
+												<li>
+													<strong class="text-[#D4AF37]">Caja (Por Cobrar):</strong> Proyecta los saldos netos pendientes por cobrar en la recepción, excluyendo los prepagos ya recaudados.
+												</li>
+											</ul>
+										</div>
+									</div>
+								</div>
 							</div>
-							<div class="flex items-center gap-2 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-800">
-								<div class="h-2 w-2 rounded-full bg-[#D4AF37] opacity-40"></div>
-								<span class="text-[10px] font-bold text-slate-400">FORECAST</span>
+							<p class="text-xs text-slate-400 uppercase tracking-widest font-bold mt-1">Histórico 30d + Proyección 7d</p>
+						</div>
+						<div class="flex flex-wrap items-center gap-3">
+							<!-- Selector de Modo de Proyección (Switch de Lujo) -->
+							<div class="flex items-center bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-xl border border-slate-200/50 dark:border-slate-700/50">
+								<button 
+									type="button"
+									onclick={() => forecastMode = 'accrual'}
+									class="px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all {forecastMode === 'accrual' ? 'bg-gradient-to-r from-[#D4AF37] to-[#AA8222] text-slate-900 shadow-sm' : 'text-slate-550 hover:text-slate-700 dark:hover:text-slate-350 text-slate-500'}"
+								>
+									Devengado (Hab)
+								</button>
+								<button 
+									type="button"
+									onclick={() => forecastMode = 'cash'}
+									class="px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all {forecastMode === 'cash' ? 'bg-gradient-to-r from-[#D4AF37] to-[#AA8222] text-slate-900 shadow-sm' : 'text-slate-550 hover:text-slate-700 dark:hover:text-slate-350 text-slate-500'}"
+								>
+									Caja (Por Cobrar)
+								</button>
+							</div>
+
+							<!-- Leyendas -->
+							<div class="flex gap-2">
+								<div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50/50 border border-slate-100 dark:border-slate-800">
+									<div class="h-2 w-2 rounded-full bg-[#D4AF37]"></div>
+									<span class="text-[10px] font-bold text-slate-600 dark:text-slate-300">REAL</span>
+								</div>
+								<div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50/50 border border-slate-100 dark:border-slate-800">
+									<div class="h-2 w-2 rounded-full bg-[#D4AF37] opacity-40"></div>
+									<span class="text-[10px] font-bold text-slate-400">FORECAST</span>
+								</div>
 							</div>
 						</div>
 					</div>
 					<div class="mt-4">
-						<DashboardChart data={stats.revenue_trend} height={350} />
+						<DashboardChart data={trendData} height={350} />
 					</div>
 				</div>
 			</div>
 
-			<div class="lg:col-span-1 space-y-6">
-				<!-- Operations Card -->
-				<div class="admin-section shadow-2xl">
-					<h3 class="text-xs font-bold uppercase tracking-widest text-[#D4AF37] mb-4">Operaciones (Próx 7 días)</h3>
-					<div class="grid grid-cols-2 gap-4">
-						<div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-							<span class="block text-2xl font-['Outfit'] font-light mb-1 text-slate-900 dark:text-white">{stats.kpis.rooms.arrivals_7d}</span>
-							<span class="text-[10px] text-slate-400 uppercase font-bold">Llegadas</span>
+			<div class="lg:col-span-1">
+				<div class="admin-section h-full flex flex-col justify-between shadow-2xl min-h-[480px]">
+					<div>
+						<!-- Header -->
+						<div class="mb-6">
+							<h3 class="text-xs font-black uppercase tracking-widest text-[#D4AF37] mb-1">Centro de Control</h3>
+							<p class="text-[10px] text-slate-400 uppercase tracking-tighter font-bold">Operaciones en tiempo real</p>
 						</div>
-						<div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-							<span class="block text-2xl font-['Outfit'] font-light mb-1 text-slate-900 dark:text-white">{stats.kpis.rooms.departures_7d}</span>
-							<span class="text-[10px] text-slate-400 uppercase font-bold">Salidas</span>
-						</div>
-					</div>
-					<button class="w-full mt-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-[#D4AF37] transition-colors" onclick={goToReservations}>Ver reporte de ocupación →</button>
-				</div>
 
-				<!-- Market Mix (Revenue by Room Type) -->
-				<div class="admin-section">
-					<h3 class="admin-section-title !text-sm !mb-6">Distribución por Tipo de Hab. (30d)</h3>
-					<div class="space-y-4">
-						{#each stats.market_mix as item}
-							<div class="space-y-1.5">
-								<div class="flex justify-between text-[11px] font-bold">
-									<span class="text-slate-600 dark:text-slate-400">{item.label}</span>
-									<span class="text-slate-900 dark:text-white">${item.value.toLocaleString()}</span>
+						<!-- Real-time Occupancy Gauge -->
+						<div class="p-4 rounded-2xl bg-gradient-to-br from-slate-50/50 to-slate-100/30 dark:from-slate-800/40 dark:to-slate-900/40 border border-slate-200/40 dark:border-slate-800/60 mb-6">
+							<div class="flex justify-between items-center mb-3">
+								<span class="text-[10px] uppercase font-black text-slate-500 tracking-wider">Ocupación del Resort</span>
+								<span class="text-xs font-black text-[#D4AF37] tabular-nums">
+									{(stats.kpis.rooms.total > 0 ? ((stats.kpis.rooms.occupied / stats.kpis.rooms.total) * 100) : 0).toFixed(1)}%
+								</span>
+							</div>
+							
+							<!-- Glowing Progress Bar -->
+							<div class="h-2 w-full bg-slate-200/50 dark:bg-slate-800 rounded-full overflow-hidden relative">
+								<div class="h-full bg-gradient-to-r from-[#D4AF37] to-[#AA8222] shadow-[0_0_8px_#D4AF37/50] rounded-full transition-all duration-1000" style="width: {stats.kpis.rooms.total > 0 ? ((stats.kpis.rooms.occupied / stats.kpis.rooms.total) * 100) : 0}%"></div>
+							</div>
+
+							<!-- Sub-KPIs Grid -->
+							<div class="grid grid-cols-3 gap-2 mt-4 text-center">
+								<div class="flex flex-col">
+									<span class="text-xs font-bold text-slate-950 dark:text-white tabular-nums">{stats.kpis.rooms.occupied}</span>
+									<span class="text-[8px] text-slate-400 uppercase font-black tracking-tight">Ocupadas</span>
 								</div>
-								<div class="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-									<div class="h-full bg-gradient-to-r from-[#D4AF37] to-[#AA8222]" style="width: {(item.value / stats.kpis.revenue.total) * 100}%"></div>
+								<div class="flex flex-col border-x border-slate-200/60 dark:border-slate-800/60">
+									<span class="text-xs font-bold text-slate-950 dark:text-white tabular-nums">{stats.kpis.rooms.available}</span>
+									<span class="text-[8px] text-slate-400 uppercase font-black tracking-tight">Libres</span>
+								</div>
+								<div class="flex flex-col">
+									<span class="text-xs font-bold text-slate-950 dark:text-white tabular-nums">{stats.kpis.rooms.total}</span>
+									<span class="text-[8px] text-slate-400 uppercase font-black tracking-tight">Total</span>
 								</div>
 							</div>
-						{/each}
+						</div>
+
+						<!-- Next Movements (7 days) -->
+						<div class="space-y-3 mb-6">
+							<span class="text-[9px] uppercase font-black text-slate-400 tracking-wider block">Movimientos (Próximos 7 días)</span>
+							<div class="grid grid-cols-2 gap-3">
+								<div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800/60 flex items-center gap-3">
+									<div class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+										<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+									</div>
+									<div>
+										<span class="block text-lg font-['Outfit'] font-bold leading-none tabular-nums text-slate-950 dark:text-white">{stats.kpis.rooms.arrivals_7d}</span>
+										<span class="text-[8px] text-slate-400 uppercase font-black tracking-wider">Llegadas</span>
+									</div>
+								</div>
+								
+								<div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800/60 flex items-center gap-3">
+									<div class="p-1.5 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400">
+										<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+									</div>
+									<div>
+										<span class="block text-lg font-['Outfit'] font-bold leading-none tabular-nums text-slate-950 dark:text-white">{stats.kpis.rooms.departures_7d}</span>
+										<span class="text-[8px] text-slate-400 uppercase font-black tracking-wider">Salidas</span>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- Quick Actions Menu -->
+						<div class="space-y-2">
+							<span class="text-[9px] uppercase font-black text-slate-400 tracking-wider block">Acciones Rápidas</span>
+							<div class="grid grid-cols-1 gap-2">
+								<a href="/admin/reservaciones/nueva" class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/80 hover:border-[#D4AF37] dark:hover:border-[#D4AF37] transition-all group/action">
+									<div class="flex items-center gap-2">
+										<svg class="w-3.5 h-3.5 text-[#D4AF37]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+										<span class="text-[10px] font-bold text-slate-700 dark:text-slate-350 group-hover/action:text-[#D4AF37] transition-colors">Nueva Reservación</span>
+									</div>
+									<svg class="w-3 h-3 text-slate-400 group-hover/action:translate-x-0.5 transition-transform" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+								</a>
+
+								<a href="/admin/reservaciones" class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/80 hover:border-[#D4AF37] dark:hover:border-[#D4AF37] transition-all group/action">
+									<div class="flex items-center gap-2">
+										<svg class="w-3.5 h-3.5 text-[#D4AF37]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+										<span class="text-[10px] font-bold text-slate-700 dark:text-slate-350 group-hover/action:text-[#D4AF37] transition-colors">Administrar Reservas</span>
+									</div>
+									<svg class="w-3 h-3 text-slate-400 group-hover/action:translate-x-0.5 transition-transform" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+								</a>
+							</div>
+						</div>
+					</div>
+
+					<!-- Bottom Navigation Button -->
+					<div class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800/60">
+						<button class="w-full py-2.5 rounded-xl bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] text-[10px] font-black uppercase tracking-widest transition-all" onclick={goToReservations}>
+							Ver Ocupación Completa
+						</button>
 					</div>
 				</div>
 			</div>
@@ -266,7 +400,7 @@
 										</div>
 									</td>
 									<td>
-										<span class="font-bold">Unit {res.room?.number}</span>
+										<span class="font-bold">Habitación {res.room?.number}</span>
 										<span class="text-[10px] text-slate-400 block">{res.room?.type}</span>
 									</td>
 									<td class="text-xs tabular-nums font-medium">{formatDateShort(res.check_in)} - {formatDateShort(res.check_out)}</td>

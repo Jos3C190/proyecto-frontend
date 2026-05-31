@@ -3,6 +3,7 @@ import { getStoredAuth } from '$lib/services/auth.service';
 
 export interface DashboardKPI {
 	total: number;
+	historical_total?: number;
 	growth: number;
 	adr?: number;
 	revpar?: number;
