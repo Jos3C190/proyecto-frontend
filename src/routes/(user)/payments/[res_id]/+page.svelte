@@ -28,6 +28,8 @@
 
     let extrasBase = $derived(reservation ? Number(reservation.extras_total || 0) : 0);
     let extrasIva = $derived(extrasBase * ivaRate);
+    let incidentalsBase = $derived(reservation ? Number(reservation.incidentals_total || 0) : 0);
+    let incidentalsIva = $derived(incidentalsBase * ivaRate);
     let grandTotal = $derived(reservation ? Number(reservation.balance) : 0);
 
 	onMount(async () => {
@@ -321,6 +323,22 @@
                                 <span class="text-slate-500 dark:text-slate-400">IVA Servicios Extras ({(ivaRate * 100).toFixed(0)}%)</span>
                                 <span class="text-slate-800 dark:text-slate-200 font-semibold">
                                     ${extrasIva.toFixed(2)}
+                                </span>
+                            </div>
+                        {/if}
+
+                        <!-- Additional items for incidentals -->
+                        {#if incidentalsBase > 0}
+                            <div class="flex justify-between items-center text-sm pb-3 border-b border-dashed border-slate-200 dark:border-slate-700">
+                                <span class="text-slate-500 dark:text-slate-400">Cargos Incidentales</span>
+                                <span class="text-slate-800 dark:text-slate-200">
+                                    ${incidentalsBase.toFixed(2)}
+                                </span>
+                            </div>
+                            <div class="flex justify-between items-center text-sm pb-3 border-b border-dashed border-slate-200 dark:border-slate-700">
+                                <span class="text-slate-500 dark:text-slate-400">IVA Incidentales ({(ivaRate * 100).toFixed(0)}%)</span>
+                                <span class="text-slate-800 dark:text-slate-200 font-semibold">
+                                    ${incidentalsIva.toFixed(2)}
                                 </span>
                             </div>
                         {/if}

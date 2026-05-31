@@ -11,12 +11,15 @@ export interface ExecutiveSummary {
 	total_reservations: number;
 	cancellation_rate: number;
 	revenue_growth_pct: number;
+	incidental_revenue?: number;
 }
 
 export interface DailyRevenueItem {
 	date: string;
 	room_revenue: number;
 	extra_revenue: number;
+	incidental_revenue?: number;
+	tax_revenue?: number;
 	total_revenue: number;
 }
 
@@ -24,6 +27,7 @@ export interface RevenueByMethodItem {
 	method: string;
 	amount: number;
 	percentage: number;
+	count: number;
 }
 
 export interface RoomTypeRevenueItem {
@@ -36,6 +40,8 @@ export interface FinancialReport {
 	total_revenue: number;
 	room_revenue: number;
 	extra_revenue: number;
+	incidental_revenue?: number;
+	tax_revenue?: number;
 	adr: number;
 	rev_par: number;
 	revenue_by_method: RevenueByMethodItem[];

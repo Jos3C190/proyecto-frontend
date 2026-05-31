@@ -15,7 +15,7 @@
 		defaultValues: {
 			checkIn: $page.url.searchParams.get('checkIn') || '',
 			checkOut: $page.url.searchParams.get('checkOut') || '',
-			guests: Number($page.url.searchParams.get('guests')) || 2
+			guests: Number($page.url.searchParams.get('guests')) || 1
 		}
 	});
 

@@ -13,11 +13,21 @@
 		payAdminReservationExtra
 	} from '$lib/services/reservation.service';
 	import { fetchExtraAmenities, type ExtraAmenityRead } from '$lib/services/extra_amenity.service';
+	import {
+		fetchIncidentalCategories,
+		createReservationIncidental,
+		updateReservationIncidental,
+		waiveReservationIncidental,
+		deleteReservationIncidental,
+		uploadIncidentalEvidence,
+		type IncidentalChargeCategoryRead
+	} from '$lib/services/incidental_charge.service';
 	import type { ReservationRead, AdminReservationUpdate, AdminPaymentCreate } from '$lib/types/reservation';
 	import { toast } from '$lib/stores/toast.svelte';
 	import { authStore } from '$lib/stores/auth.store';
 	import { hasPermission } from '$lib/types';
 	import GenericConfirmModal from '$lib/components/ui/GenericConfirmModal.svelte';
+	import { X, Save, Sparkles, ShieldAlert, AlertCircle } from 'lucide-svelte';
 	import '../../../adminPage.css';
 
 	let id = $derived(Number($sveltePage.params.id));
@@ -37,6 +47,24 @@
 	let extraQuantity = $state(1);
 	let extraNotes = $state('');
 	let addingExtra = $state(false);
+
+	// Incidentals State
+	let incidentalCategories = $state<IncidentalChargeCategoryRead[]>([]);
+	let showAddIncidentalModal = $state(false);
+	let selectedIncidentalCategoryId = $state<number | ''>('');
+	let incidentalDescription = $state('');
+	let incidentalAmount = $state<number | ''>('');
+	let incidentalQuantity = $state(1);
+	let incidentalApplyTax = $state(true);
+	let incidentalNotes = $state('');
+	let incidentalEvidenceFile = $state<File | null>(null);
+	let registeringIncidental = $state(false);
+
+	let showWaiveModal = $state(false);
+	let waiveChargeId = $state<number | null>(null);
+	let waiveReason = $state('');
+	let waivingCharge = $state(false);
+	let uploadingEvidenceId = $state<number | null>(null);
 
 	let hasReadAccess = $derived(hasPermission($authStore.user, 'reservations', 'read'));
 	let hasUpdateAccess = $derived(hasPermission($authStore.user, 'reservations', 'update'));
@@ -83,6 +111,11 @@
 
 	async function handleRemoveExtra(pivotId: number) {
 		if (!reservation) return;
+		const extra = reservation.extras?.find(e => e.id === pivotId);
+		if (extra && extra.payment_status === 'paid') {
+			toast.error('No se puede eliminar un servicio extra que ya ha sido pagado');
+			return;
+		}
 		modalConfig = {
 			title: 'Eliminar Extra',
 			message: '¿Estás seguro de eliminar este servicio extra de la reservación?',
@@ -165,6 +198,116 @@
 		goto('/admin/reservaciones');
 	}
 
+	async function loadIncidentalCategories() {
+		try {
+			incidentalCategories = await fetchIncidentalCategories();
+		} catch (err: any) {
+			console.error("Error cargando categorías de incidentales:", err);
+		}
+	}
+
+	async function handleAddIncidental() {
+		if (!reservation || !incidentalDescription || !incidentalAmount || Number(incidentalAmount) <= 0) return;
+		registeringIncidental = true;
+		try {
+			const newCharge = await createReservationIncidental(reservation.id, {
+				category_id: selectedIncidentalCategoryId ? Number(selectedIncidentalCategoryId) : undefined,
+				description: incidentalDescription,
+				amount: Number(incidentalAmount),
+				quantity: incidentalQuantity,
+				apply_tax: incidentalApplyTax,
+				notes: incidentalNotes || undefined
+			});
+
+			if (incidentalEvidenceFile) {
+				try {
+					await uploadIncidentalEvidence(newCharge.id, incidentalEvidenceFile);
+				} catch (uploadErr: any) {
+					toast.error('Cargo registrado, pero falló subir la evidencia: ' + uploadErr.message);
+				}
+			}
+
+			toast.success('Cargo incidental registrado exitosamente');
+			showAddIncidentalModal = false;
+			selectedIncidentalCategoryId = '';
+			incidentalDescription = '';
+			incidentalAmount = '';
+			incidentalQuantity = 1;
+			incidentalApplyTax = true;
+			incidentalNotes = '';
+			incidentalEvidenceFile = null;
+			await loadReservation();
+		} catch (e: any) {
+			toast.error(e.message || 'Error al registrar cargo incidental');
+		} finally {
+			registeringIncidental = false;
+		}
+	}
+
+	async function handleRemoveIncidental(chargeId: number) {
+		modalConfig = {
+			title: 'Eliminar Cargo Incidental',
+			message: '¿Estás seguro de eliminar permanentemente este cargo incidental de la reservación?',
+			onConfirm: async () => {
+				try {
+					await deleteReservationIncidental(chargeId);
+					toast.success('Cargo incidental eliminado');
+					await loadReservation();
+				} catch (e: any) {
+					toast.error(e.message || 'Error al eliminar cargo');
+				}
+			}
+		};
+		isConfirmModalOpen = true;
+	}
+
+	function openWaiveModal(chargeId: number) {
+		waiveChargeId = chargeId;
+		waiveReason = '';
+		showWaiveModal = true;
+	}
+
+	async function handleWaiveIncidental() {
+		if (!waiveChargeId || !waiveReason || waiveReason.length < 5) return;
+		waivingCharge = true;
+		try {
+			await waiveReservationIncidental(waiveChargeId, waiveReason);
+			toast.success('Cargo condonado con éxito');
+			showWaiveModal = false;
+			waiveChargeId = null;
+			waiveReason = '';
+			await loadReservation();
+		} catch (e: any) {
+			toast.error(e.message || 'Error al condonar cargo');
+		} finally {
+			waivingCharge = false;
+		}
+	}
+
+	function handleFileChange(event: Event) {
+		const target = event.target as HTMLInputElement;
+		if (target.files && target.files.length > 0) {
+			incidentalEvidenceFile = target.files[0];
+		}
+	}
+	
+	async function handleDirectEvidenceUpload(chargeId: number, event: Event) {
+		const target = event.target as HTMLInputElement;
+		if (target.files && target.files.length > 0) {
+			const file = target.files[0];
+			uploadingEvidenceId = chargeId;
+			try {
+				await uploadIncidentalEvidence(chargeId, file);
+				toast.success('Evidencia fotográfica subida con éxito');
+				await loadReservation();
+			} catch (err: any) {
+				toast.error('Error al subir evidencia: ' + err.message);
+			} finally {
+				uploadingEvidenceId = null;
+			}
+		}
+	}
+
 	function goToEdit() {
 		goto(`/admin/reservaciones/${id}/editar`);
 	}
@@ -185,6 +328,7 @@
 		}
 		loadReservation();
 		loadAvailableExtras();
+		loadIncidentalCategories();
 	});
 
 	const statusColors: Record<string, string> = {
@@ -196,15 +340,37 @@
 
 	function formatDateTime(dateStr: string) {
 		if (!dateStr) return '---';
-		const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/);
-		if (match) {
-			const [_, y, m, d, hh, mm, ss] = match;
-			const hour = parseInt(hh);
-			const ampm = hour >= 12 ? 'p. m.' : 'a. m.';
-			const h12 = hour % 12 || 12;
-			return `${parseInt(d)}/${parseInt(m)}/${y}, ${h12}:${mm}:${ss} ${ampm}`;
+		try {
+			let parsedStr = dateStr;
+			if (!dateStr.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(dateStr)) {
+				parsedStr = dateStr.replace(' ', 'T') + 'Z';
+			}
+			const date = new Date(parsedStr);
+			if (isNaN(date.getTime())) return dateStr;
+
+			const formatter = new Intl.DateTimeFormat('es-SV', {
+				timeZone: 'America/El_Salvador',
+				year: 'numeric',
+				month: '2-digit',
+				day: '2-digit',
+				hour: '2-digit',
+				minute: '2-digit',
+				second: '2-digit',
+				hour12: true
+			});
+			
+			return formatter.format(date);
+		} catch (e) {
+			const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/);
+			if (match) {
+				const [_, y, m, d, hh, mm, ss] = match;
+				const hour = parseInt(hh);
+				const ampm = hour >= 12 ? 'p. m.' : 'a. m.';
+				const h12 = hour % 12 || 12;
+				return `${parseInt(d)}/${parseInt(m)}/${y}, ${h12}:${mm}:${ss} ${ampm}`;
+			}
+			return dateStr;
 		}
-		return dateStr;
 	}
 
 	function formatMethod(m: string) {
@@ -451,13 +617,15 @@
                                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                                                     </button>
                                                 {/if}
-                                                <button 
-                                                    class="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors border border-transparent hover:border-rose-200 dark:hover:border-rose-800/50" 
-                                                    title="Eliminar extra"
-                                                    onclick={() => handleRemoveExtra(extra.id)}
-                                                >
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                                </button>
+                                                {#if extra.payment_status === 'pending'}
+                                                    <button 
+                                                        class="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors border border-transparent hover:border-rose-200 dark:hover:border-rose-800/50" 
+                                                        title="Eliminar extra"
+                                                        onclick={() => handleRemoveExtra(extra.id)}
+                                                    >
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                                    </button>
+                                                {/if}
                                             </div>
                                         {/if}
                                     </div>
@@ -479,6 +647,132 @@
                         <div class="text-center py-10 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl">
                             <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest italic mb-2">Sin servicios adicionales</p>
                             <p class="text-xs text-slate-500">Esta reservación no cuenta con extras contratados.</p>
+                        </div>
+                    {/if}
+                </section>
+
+                <!-- Card: Cargos Incidentales / Varios -->
+                <section class="bg-white dark:bg-slate-900 rounded-[32px] p-8 shadow-sm border border-slate-100 dark:border-slate-800/50">
+                    <div class="flex items-center justify-between mb-8">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-500 font-bold">
+                                🛡️
+                            </div>
+                            <h3 class="text-xl font-bold font-['Outfit'] text-slate-800 dark:text-slate-100 uppercase tracking-wide">Cargos Incidentales / Varios</h3>
+                        </div>
+                        {#if hasUpdateAccess && (reservation.status === 'pending' || reservation.status === 'confirmed' || reservation.status === 'verifying')}
+                            <button 
+                                class="px-4 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-xl text-xs font-bold hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors flex items-center gap-2 border border-amber-200 dark:border-amber-800/30"
+                                onclick={() => showAddIncidentalModal = true}
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                Registrar Cargo
+                            </button>
+                        {/if}
+                    </div>
+
+                    {#if reservation.incidental_charges && reservation.incidental_charges.length > 0}
+                        <div class="space-y-4">
+                            {#each reservation.incidental_charges as charge}
+                                <div class="p-5 bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:border-amber-500/20 transition-all">
+                                    <div class="flex items-start gap-4">
+                                        <div class="w-12 h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shrink-0">
+                                            {#if charge.evidence_url}
+                                                <a href={charge.evidence_url} target="_blank" title="Ver evidencia fotográfica">
+                                                    <img src={charge.evidence_url} alt="Evidencia" class="w-full h-full object-cover" />
+                                                </a>
+                                            {:else}
+                                                <span class="text-2xl">🧾</span>
+                                            {/if}
+                                        </div>
+                                        <div class="space-y-1">
+                                            <div class="flex items-center gap-2">
+                                                <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200">{charge.description}</h4>
+                                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-200/50 dark:bg-slate-800 text-slate-500 font-bold uppercase">{charge.category?.name || 'Otros'}</span>
+                                            </div>
+                                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                                {charge.quantity} x ${charge.amount} = 
+                                                <span class="text-amber-600 dark:text-amber-400">${charge.total_amount}</span> 
+                                                {#if charge.apply_tax}
+                                                    <span class="text-slate-400 font-normal lowercase">(lleva IVA)</span>
+                                                {:else}
+                                                    <span class="text-slate-400 font-normal lowercase">(exento)</span>
+                                                {/if}
+                                            </p>
+                                            {#if charge.notes}
+                                                <p class="text-xs text-slate-500 bg-slate-100 dark:bg-slate-800/50 p-2 rounded-lg italic">Notas: "{charge.notes}"</p>
+                                            {/if}
+                                            {#if charge.payment_status === 'waived' && charge.waived_reason}
+                                                <p class="text-xs text-rose-500 bg-rose-500/5 p-2 rounded-lg border border-rose-500/10 italic">
+                                                    <strong>Condonado:</strong> "{charge.waived_reason}"
+                                                </p>
+                                            {/if}
+                                            <p class="text-[9px] text-slate-400">Registrado por: {charge.created_by?.email || 'Sistema'} el {formatDateTime(charge.created_at)}</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-3 shrink-0">
+                                        <span class="text-[9px] font-black uppercase px-2 py-1 rounded border {charge.payment_status === 'paid' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : charge.payment_status === 'waived' ? 'bg-rose-500/10 text-rose-600 border-rose-500/20' : 'bg-orange-500/10 text-orange-600 border-orange-500/20'}">
+                                            {#if charge.payment_status === 'paid'}
+                                                Pagado
+                                            {:else}
+                                                {charge.payment_status === 'waived' ? 'Condonado' : 'Pendiente'}
+                                            {/if}
+                                        </span>
+                                        
+                                        {#if hasUpdateAccess && charge.payment_status === 'pending' && (reservation.status === 'pending' || reservation.status === 'confirmed' || reservation.status === 'verifying')}
+                                            <div class="flex items-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <!-- Condonar cargo -->
+                                                <button 
+                                                    class="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors border border-transparent hover:border-rose-200 dark:hover:border-rose-800/50 cursor-pointer" 
+                                                    title="Exonerar / Condonar cargo incidental"
+                                                    onclick={() => openWaiveModal(charge.id)}
+                                                >
+                                                    🛡️
+                                                </button>
+                                                
+                                                <!-- Subir evidencia directamente -->
+                                                {#if !charge.evidence_url}
+                                                    <label class="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors border border-transparent hover:border-amber-200 dark:hover:border-amber-800/50 cursor-pointer" title="Subir evidencia fotográfica">
+                                                        <input type="file" accept="image/*" class="hidden" onchange={(e) => handleDirectEvidenceUpload(charge.id, e)} />
+                                                        {#if uploadingEvidenceId === charge.id}
+                                                            <div class="w-4 h-4 border-2 border-amber-600/30 border-t-amber-600 rounded-full animate-spin"></div>
+                                                        {:else}
+                                                            📸
+                                                        {/if}
+                                                    </label>
+                                                {/if}
+
+                                                <!-- Eliminar cargo -->
+                                                <button 
+                                                    class="p-1.5 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700" 
+                                                    title="Eliminar cargo"
+                                                    onclick={() => handleRemoveIncidental(charge.id)}
+                                                >
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                                </button>
+                                            </div>
+                                        {/if}
+                                    </div>
+                                </div>
+                            {/each}
+
+                            <div class="p-4 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20 rounded-2xl flex justify-between items-center mt-6">
+                                <div>
+                                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Incidentales Base</p>
+                                    <p class="text-xl font-black text-amber-600 dark:text-amber-400">${reservation.incidentals_total || 0}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Pendiente (con IVA)</p>
+                                    <p class="text-xl font-black {reservation.incidentals_pending && Number(reservation.incidentals_pending) > 0 ? 'text-orange-500' : 'text-emerald-500'}">
+                                        ${reservation.incidentals_pending ? Number(reservation.incidentals_pending).toFixed(2) : 0}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    {:else}
+                        <div class="text-center py-10 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl">
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest italic mb-2">Sin cargos registrados</p>
+                            <p class="text-xs text-slate-500">Esta reservación no cuenta con cargos incidentales registrados.</p>
                         </div>
                     {/if}
                 </section>
@@ -506,6 +800,12 @@
                             <div class="flex justify-between items-end border-b border-slate-100 dark:border-slate-800 pb-2">
                                 <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Extras + IVA</span>
                                 <span class="text-lg font-black text-slate-900 dark:text-white tracking-tighter">${(Number(reservation.extras_total) * 1.13).toFixed(2)}</span>
+                            </div>
+                        {/if}
+                        {#if Number(reservation.incidentals_total || 0) > 0}
+                            <div class="flex justify-between items-end border-b border-slate-100 dark:border-slate-800 pb-2">
+                                <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Incidentales + IVA</span>
+                                <span class="text-lg font-black text-slate-900 dark:text-white tracking-tighter">${(Number(reservation.incidentals_total) * 1.13).toFixed(2)}</span>
                             </div>
                         {/if}
                         <div class="flex justify-between items-end border-b border-slate-100 dark:border-slate-800 pb-4 mt-2">
@@ -589,24 +889,34 @@
 
 <!-- Modal Añadir Extra -->
 {#if showAddExtraModal}
-	<div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-		<div class="bg-white dark:bg-[#11151d] w-full max-w-lg rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col">
+	<div class="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-28 bg-black/60 backdrop-blur-sm">
+		<!-- Backdrop -->
+		<button type="button" class="absolute inset-0 w-full h-full bg-transparent border-0 cursor-default" onclick={() => showAddExtraModal = false}></button>
+		
+		<!-- Modal Content -->
+		<div class="relative w-full max-w-xl bg-white dark:bg-[#11151d] rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col max-h-[80vh] animate-scale-in">
+			<!-- Header -->
 			<div class="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/50">
-				<h2 class="text-xl font-bold text-slate-900 dark:text-white font-['Outfit'] flex items-center gap-2">
-					⭐ Agregar Servicio Extra
-				</h2>
+				<div>
+					<h2 class="text-xl font-bold text-slate-900 dark:text-white font-['Outfit'] flex items-center gap-2">
+						<Sparkles class="w-5 h-5 text-[#D4AF37]" />
+						Agregar Servicio Extra
+					</h2>
+					<p class="text-xs text-gray-500 mt-1">Contrata un nuevo servicio o experiencia adicional para esta reserva.</p>
+				</div>
 				<button onclick={() => showAddExtraModal = false} class="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-500">
-					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+					<X class="w-5 h-5" />
 				</button>
 			</div>
 
-			<div class="p-6 overflow-y-auto space-y-6">
+			<!-- Body -->
+			<div class="p-6 overflow-y-auto flex-1 space-y-5">
 				{#if availableExtras.length === 0}
-					<p class="text-center text-sm text-slate-500 italic">No hay servicios extras disponibles en el catálogo.</p>
+					<p class="text-center text-sm text-slate-500 italic py-6">No hay servicios extras disponibles en el catálogo.</p>
 				{:else}
-					<div>
+					<div class="admin-field">
 						<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Servicio Extra <span class="text-red-500">*</span></label>
-						<select bind:value={selectedExtraId} class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-fuchsia-500/50 outline-none transition-all">
+						<select bind:value={selectedExtraId} class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all font-bold">
 							<option value="">-- Seleccionar --</option>
 							{#each availableExtras as extra}
 								<option value={extra.id}>{extra.name} - ${extra.price}</option>
@@ -614,18 +924,19 @@
 						</select>
 					</div>
 
-					<div>
+					<div class="admin-field">
 						<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Cantidad <span class="text-red-500">*</span></label>
-						<input type="number" min="1" bind:value={extraQuantity} class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-fuchsia-500/50 outline-none transition-all font-mono" />
+						<input type="number" min="1" bind:value={extraQuantity} class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all font-mono" />
 					</div>
 
-					<div>
+					<div class="admin-field">
 						<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Notas / Comentarios</label>
-						<textarea bind:value={extraNotes} rows="2" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-fuchsia-500/50 outline-none transition-all resize-none" placeholder="Opcional. Ej: Alergia a las nueces..."></textarea>
+						<textarea bind:value={extraNotes} rows="3" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all resize-none placeholder-gray-400" placeholder="Ej: Alergia a las nueces, hora de entrega preferida..."></textarea>
 					</div>
 				{/if}
 			</div>
 
+			<!-- Footer -->
 			<div class="p-6 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-3 bg-gray-50/50 dark:bg-gray-900/50">
 				<button type="button" onclick={() => showAddExtraModal = false} class="px-5 py-2.5 text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors">
 					Cancelar
@@ -634,12 +945,171 @@
 					type="button" 
 					onclick={handleAddExtra} 
 					disabled={addingExtra || selectedExtraId === '' || extraQuantity < 1}
-					class="px-5 py-2.5 bg-fuchsia-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-fuchsia-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2"
+					class="px-5 py-2.5 bg-gradient-to-r from-[#D4AF37] to-[#AA8222] hover:from-[#f3cd54] hover:to-[#c69a2b] text-slate-900 rounded-xl text-sm font-bold shadow-lg shadow-[#D4AF37]/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
 				>
 					{#if addingExtra}
-						<div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+						<div class="w-4 h-4 border-2 border-slate-900/30 border-t-slate-900 rounded-full animate-spin"></div>
+					{:else}
+						<Save class="w-4 h-4" />
 					{/if}
 					Agregar a Reservación
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if showAddIncidentalModal}
+	<div class="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-28 bg-black/60 backdrop-blur-sm">
+		<!-- Backdrop -->
+		<button type="button" class="absolute inset-0 w-full h-full bg-transparent border-0 cursor-default" onclick={() => showAddIncidentalModal = false}></button>
+		
+		<!-- Modal Content -->
+		<div class="relative w-full max-w-xl bg-white dark:bg-[#11151d] rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col max-h-[85vh] animate-scale-in">
+			<!-- Header -->
+			<div class="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/50">
+				<div>
+					<h2 class="text-xl font-bold text-slate-900 dark:text-white font-['Outfit'] flex items-center gap-2">
+						<ShieldAlert class="w-5 h-5 text-[#D4AF37]" />
+						Registrar Cargo Incidental
+					</h2>
+					<p class="text-xs text-gray-500 mt-1">Registra cargos por daños, consumos o servicios extras de staff.</p>
+				</div>
+				<button onclick={() => showAddIncidentalModal = false} class="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-500">
+					<X class="w-5 h-5" />
+				</button>
+			</div>
+
+			<!-- Body -->
+			<div class="p-6 overflow-y-auto flex-1 space-y-5">
+				<div class="admin-field">
+					<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Categoría de Cargo</label>
+					<select bind:value={selectedIncidentalCategoryId} class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all font-bold">
+						<option value="">-- Ninguna / Otros --</option>
+						{#each incidentalCategories as category}
+							<option value={category.id}>{category.name}</option>
+						{/each}
+					</select>
+				</div>
+
+				<div class="admin-field">
+					<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Descripción <span class="text-red-500">*</span></label>
+					<textarea bind:value={incidentalDescription} rows="2" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all resize-none placeholder-gray-400" placeholder="Ej. Toalla de baño arruinada, plato de porcelana roto..."></textarea>
+				</div>
+
+				<div class="grid grid-cols-2 gap-4">
+					<div class="admin-field">
+						<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Monto Unitario ($) <span class="text-red-500">*</span></label>
+						<input type="number" min="0.01" step="0.01" bind:value={incidentalAmount} class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all font-mono" placeholder="0.00" />
+					</div>
+
+					<div class="admin-field">
+						<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Cantidad <span class="text-red-500">*</span></label>
+						<input type="number" min="1" bind:value={incidentalQuantity} class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all font-mono" />
+					</div>
+				</div>
+
+				<div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-800 transition-all hover:bg-gray-100/50 dark:hover:bg-gray-900/80">
+					<input type="checkbox" id="inc_apply_tax" bind:checked={incidentalApplyTax} class="w-4 h-4 text-[#D4AF37] border-gray-300 rounded focus:ring-[#D4AF37] focus:ring-2 accent-[#D4AF37] cursor-pointer" />
+					<label for="inc_apply_tax" class="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+						Aplicar IVA (13% adicional)
+					</label>
+				</div>
+
+				<div class="admin-field">
+					<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Evidencia Fotográfica (Opcional)</label>
+					<input type="file" accept="image/*" onchange={handleFileChange} class="w-full text-xs text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#D4AF37]/10 file:text-[#B8962A] dark:file:bg-[#D4AF37]/20 dark:file:text-[#D4AF37] hover:file:bg-[#D4AF37]/20 transition-all cursor-pointer" />
+				</div>
+
+				<div class="admin-field">
+					<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Notas Internas (Solo Staff)</label>
+					<textarea bind:value={incidentalNotes} rows="2" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all resize-none placeholder-gray-400" placeholder="Notas internas o comentarios adicionales..."></textarea>
+				</div>
+
+				{#if incidentalAmount && Number(incidentalAmount) > 0}
+					<div class="p-4 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20 rounded-2xl flex justify-between items-center text-xs font-bold">
+						<span class="text-slate-600 dark:text-slate-400">Total a registrar:</span>
+						<span class="text-base text-[#D4AF37] dark:text-[#D4AF37] font-mono">
+							${(Number(incidentalAmount) * incidentalQuantity * (incidentalApplyTax ? 1.13 : 1)).toFixed(2)}
+							{#if incidentalApplyTax}
+								<span class="text-[10px] font-normal text-slate-400 dark:text-slate-500">(con IVA)</span>
+							{/if}
+						</span>
+					</div>
+				{/if}
+			</div>
+
+			<!-- Footer -->
+			<div class="p-6 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-3 bg-gray-50/50 dark:bg-gray-900/50">
+				<button type="button" onclick={() => showAddIncidentalModal = false} class="px-5 py-2.5 text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+					Cancelar
+				</button>
+				<button 
+					type="button" 
+					onclick={handleAddIncidental} 
+					disabled={registeringIncidental || !incidentalDescription || !incidentalAmount || Number(incidentalAmount) <= 0 || incidentalQuantity < 1}
+					class="px-5 py-2.5 bg-gradient-to-r from-[#D4AF37] to-[#AA8222] hover:from-[#f3cd54] hover:to-[#c69a2b] text-slate-900 rounded-xl text-sm font-bold shadow-lg shadow-[#D4AF37]/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+				>
+					{#if registeringIncidental}
+						<div class="w-4 h-4 border-2 border-slate-900/30 border-t-slate-900 rounded-full animate-spin"></div>
+					{:else}
+						<Save class="w-4 h-4" />
+					{/if}
+					Registrar Cargo
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if showWaiveModal}
+	<div class="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-28 bg-black/60 backdrop-blur-sm">
+		<!-- Backdrop -->
+		<button type="button" class="absolute inset-0 w-full h-full bg-transparent border-0 cursor-default" onclick={() => showWaiveModal = false}></button>
+		
+		<!-- Modal Content -->
+		<div class="relative w-full max-w-xl bg-white dark:bg-[#11151d] rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col max-h-[80vh] animate-scale-in">
+			<!-- Header -->
+			<div class="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/50">
+				<div>
+					<h2 class="text-xl font-bold text-rose-600 dark:text-rose-500 font-['Outfit'] flex items-center gap-2">
+						<AlertCircle class="w-5 h-5 text-rose-600 dark:text-rose-500" />
+						Exonerar / Condonar Cargo
+					</h2>
+					<p class="text-xs text-gray-500 mt-1">Condonar un cargo incidental registrado para descontarlo de la reserva.</p>
+				</div>
+				<button onclick={() => showWaiveModal = false} class="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-500">
+					<X class="w-5 h-5" />
+				</button>
+			</div>
+
+			<!-- Body -->
+			<div class="p-6 space-y-4 overflow-y-auto flex-1">
+				<div class="p-4 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs rounded-2xl border border-amber-500/20 leading-relaxed font-bold">
+					⚠️ ¡ATENCIÓN! Condonar un cargo incidental lo exonerará del total a pagar de la reserva (el cargo ya no sumará al balance). Esta acción quedará registrada en la bitácora y no se puede deshacer.
+				</div>
+
+				<div class="admin-field">
+					<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Motivo de Exoneración <span class="text-red-500">*</span></label>
+					<textarea bind:value={waiveReason} rows="3" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500/50 outline-none transition-all resize-none placeholder-gray-400" placeholder="Especifica el motivo (mínimo 5 caracteres). Ej: Cortesía aprobada por Gerencia, registro erróneo..."></textarea>
+				</div>
+			</div>
+
+			<!-- Footer -->
+			<div class="p-6 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-3 bg-gray-50/50 dark:bg-gray-900/50">
+				<button type="button" onclick={() => showWaiveModal = false} class="px-5 py-2.5 text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+					Cancelar
+				</button>
+				<button 
+					type="button" 
+					onclick={handleWaiveIncidental} 
+					disabled={waivingCharge || !waiveReason || waiveReason.length < 5}
+					class="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+				>
+					{#if waivingCharge}
+						<div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+					{/if}
+					Confirmar Exoneración
 				</button>
 			</div>
 		</div>

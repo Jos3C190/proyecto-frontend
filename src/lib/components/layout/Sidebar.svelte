@@ -26,6 +26,7 @@
 		{ href: '/admin/pagos', label: 'Pagos', icon: 'payments' as const, resource: 'payments' as const },
 		{ href: '/admin/amenidades', label: 'Amenidades', icon: 'amenities' as const, resource: 'amenities' as const },
 		{ href: '/admin/amenidades-extras', label: 'Extras', icon: 'star' as const, resource: 'amenities' as const }, // Reusing amenities permission
+		{ href: '/admin/cargos-incidentales', label: 'Cargos Incidentales', icon: 'admin' as const, resource: 'incidentals' as const },
 		{ href: '/admin/reportes', label: 'Reportes', icon: 'reports' as const, resource: 'reports' as const }
 	].filter((item) => hasPermission($authStore.user, item.resource, 'read'));
 

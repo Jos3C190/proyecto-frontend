@@ -33,7 +33,7 @@
 		defaultValues: {
 			checkIn: '',
 			checkOut: '',
-			guests: '2'
+			guests: '1'
 		}
 	});
 

@@ -600,8 +600,6 @@
 								{@const meta = SETTINGS_META[setting.key] || { title: setting.key, desc: setting.description, type: 'boolean', icon: Settings2 }}
 								
 								<div class="bg-white dark:bg-[#11151d] border border-gray-100 dark:border-gray-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-									<!-- Deco accent -->
-									<div class="absolute top-0 left-0 w-1 h-full bg-transparent group-hover:bg-[#D4AF37] transition-colors duration-300"></div>
 									
 									<div class="flex items-start justify-between gap-4">
 										<div class="flex items-start gap-4 flex-1 min-w-0">

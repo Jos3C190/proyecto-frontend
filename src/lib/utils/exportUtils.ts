@@ -468,7 +468,9 @@ export async function downloadVectorPDF(
 			{ label: 'Ingresos Totales', value: formatMoney(fin.total_revenue || summaryData?.total_revenue), growth: fin.revenue_growth ?? summaryData?.revenue_growth_pct },
 			{ label: 'Ingresos por Habitaciones', value: formatMoney(fin.room_revenue), growth: null },
 			{ label: 'Ingresos por Extras', value: formatMoney(fin.extra_revenue), growth: null },
-			{ label: 'Ticket Promedio', value: formatMoney(fin.adr || summaryData?.adr), growth: null }
+			{ label: 'Ingresos por Incidentales', value: formatMoney(fin.incidental_revenue || 0), growth: null },
+			{ label: 'Tarifa Promedio (ADR)', value: formatMoney(fin.adr || summaryData?.adr), growth: null },
+			{ label: 'RevPAR', value: formatMoney(fin.rev_par || summaryData?.rev_par), growth: null }
 		];
 	} else if (reportType === 'occupancy') {
 		reportTitle = 'Reporte Analítico de Ocupación';
@@ -580,6 +582,40 @@ export async function downloadVectorPDF(
 					const g = kpis[i].growth;
 					doc.setTextColor(g >= 0 ? 22 : 220, g >= 0 ? 163 : 38, g >= 0 ? 74 : 38);
 					doc.setFontSize(8); doc.text(g >= 0 ? `+${g.toFixed(1)}%` : `${g.toFixed(1)}%`, bx + boxW - 4, y + 11, { align: 'right' });
+				}
+			}
+			y += 18;
+		} else if (kpis.length === 6) {
+			// Cuadrícula de 3 columnas x 2 filas
+			const boxW = 56;
+			const boxH = 15;
+			
+			// Fila 1 (Índices 0, 1, 2)
+			for (let i = 0; i < 3; i++) {
+				const bx = 15 + i * 62;
+				doc.setFillColor(248, 250, 252); doc.rect(bx, y, boxW, boxH, 'F');
+				doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.2); doc.rect(bx, y, boxW, boxH, 'D');
+				doc.setFont('helvetica', 'bold'); doc.setFontSize(7.2); doc.setTextColor(100, 116, 139); doc.text(kpis[i].label.toUpperCase(), bx + 4, y + 4.5);
+				doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(15, 23, 42); doc.text(kpis[i].value, bx + 4, y + 11);
+				if (kpis[i].growth !== null) {
+					const g = kpis[i].growth;
+					doc.setTextColor(g >= 0 ? 22 : 220, g >= 0 ? 163 : 38, g >= 0 ? 74 : 38);
+					doc.setFontSize(7.5); doc.text(g >= 0 ? `+${g.toFixed(1)}%` : `${g.toFixed(1)}%`, bx + boxW - 4, y + 11, { align: 'right' });
+				}
+			}
+			y += 18;
+
+			// Fila 2 (Índices 3, 4, 5)
+			for (let i = 3; i < 6; i++) {
+				const bx = 15 + (i - 3) * 62;
+				doc.setFillColor(248, 250, 252); doc.rect(bx, y, boxW, boxH, 'F');
+				doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.2); doc.rect(bx, y, boxW, boxH, 'D');
+				doc.setFont('helvetica', 'bold'); doc.setFontSize(7.2); doc.setTextColor(100, 116, 139); doc.text(kpis[i].label.toUpperCase(), bx + 4, y + 4.5);
+				doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(15, 23, 42); doc.text(kpis[i].value, bx + 4, y + 11);
+				if (kpis[i].growth !== null) {
+					const g = kpis[i].growth;
+					doc.setTextColor(g >= 0 ? 22 : 220, g >= 0 ? 163 : 38, g >= 0 ? 74 : 38);
+					doc.setFontSize(7.5); doc.text(g >= 0 ? `+${g.toFixed(1)}%` : `${g.toFixed(1)}%`, bx + boxW - 4, y + 11, { align: 'right' });
 				}
 			}
 			y += 18;
@@ -720,7 +756,7 @@ export async function downloadVectorPDF(
 		
 		// Tabla de Métodos de Pago
 		const payRows = (fin.revenue_by_method || []).map((m: any) => [
-			String(m.method === 'card' ? 'Tarjeta' : m.method === 'transfer' ? 'Transferencia' : m.method === 'cash' ? 'Efectivo' : m.method),
+			String(m.method === 'card' ? 'Tarjeta' : m.method === 'transfer' ? 'Transferencia' : m.method === 'cash' ? 'Efectivo' : m.method === 'refund' ? 'Reembolso' : m.method),
 			String(m.count ?? 0),
 			formatMoney(m.amount)
 		]);
@@ -732,18 +768,26 @@ export async function downloadVectorPDF(
 			payRows
 		);
 
-		// Tabla de Tendencia Diaria
-		const trendRows = (fin.daily_revenue || []).map((t: any) => [
-			formatDate(t.date),
-			formatMoney(t.room_revenue),
-			formatMoney(t.extra_revenue),
-			formatMoney(t.total_revenue)
-		]);
+		// Tabla de Tendencia Diaria (Desglose impositivo completo)
+		const trendRows = (fin.daily_revenue || []).map((t: any) => {
+			const roomRevenue = Number(t.room_revenue || 0);
+			const tourismTax = roomRevenue * 0.05;
+			const ivaTax = Math.max(0, Number(t.tax_revenue || 0) - tourismTax);
+			return [
+				formatDate(t.date),
+				formatMoney(t.room_revenue),
+				formatMoney(t.extra_revenue),
+				formatMoney(t.incidental_revenue || 0),
+				formatMoney(ivaTax),
+				formatMoney(tourismTax),
+				formatMoney(t.total_revenue)
+			];
+		});
 		printTable(
-			'Historial de Ingresos Diarios (Tendencia)',
-			['FECHA', 'HABITACIONES', 'SERVICIOS EXTRAS', 'TOTAL DIARIO'],
-			[45, 45, 45, 45],
-			['center', 'right', 'right', 'right'],
+			'Historial de Ingresos Diarios (Desglose de Caja Neto)',
+			['FECHA', 'HABITACIONES', 'EXTRAS', 'INCIDENTALES', 'IVA (13%)', 'TURISMO (5%)', 'TOTAL DIARIO'],
+			[25, 25, 25, 25, 25, 25, 30],
+			['center', 'right', 'right', 'right', 'right', 'right', 'right'],
 			trendRows
 		);
 	} else if (reportType === 'occupancy') {

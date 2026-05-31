@@ -292,9 +292,15 @@
 								<td class="text-right font-mono font-bold text-slate-600 dark:text-slate-300">
 									<div class="flex flex-col items-end">
 										<span>${Number(res.grand_total ?? res.total_cost).toFixed(2)}</span>
-										{#if Number(res.extras_total || 0) > 0}
-											<span class="text-[9px] text-fuchsia-600 dark:text-fuchsia-400 font-normal">Hab: ${Number(res.total_cost).toFixed(2)} • Ext: ${(Number(res.extras_total) * 1.13).toFixed(2)}</span>
-										{/if}
+										<div class="text-[9px] text-slate-400 font-normal flex flex-col items-end gap-0.5 mt-0.5">
+											<span>Hab: ${Number(res.total_cost).toFixed(2)}</span>
+											{#if Number(res.extras_total || 0) > 0}
+												<span class="text-fuchsia-600 dark:text-fuchsia-400">Ext: ${(Number(res.extras_total) * 1.13).toFixed(2)}</span>
+											{/if}
+											{#if Number(res.incidentals_total || 0) > 0}
+												<span class="text-amber-600 dark:text-amber-400">Inc: ${(Number(res.incidentals_total) * 1.13).toFixed(2)}</span>
+											{/if}
+										</div>
 									</div>
 								</td>
 								<td class="text-right font-mono font-bold text-green-600">${Number(res.total_paid || 0).toFixed(2)}</td>

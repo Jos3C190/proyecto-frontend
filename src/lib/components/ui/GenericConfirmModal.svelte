@@ -11,6 +11,7 @@
 		onConfirm: () => void;
 		onClose: () => void;
 		loading?: boolean;
+		children?: import('svelte').Snippet;
 	}
 
 	let {
@@ -22,7 +23,8 @@
 		variant = 'info',
 		onConfirm,
 		onClose,
-		loading = false
+		loading = false,
+		children
 	}: Props = $props();
 
 	const variants = {
@@ -100,6 +102,9 @@
 
 			<div class="modal-body">
 				<p class="modal-message">{message}</p>
+				{#if children}
+					{@render children()}
+				{/if}
 			</div>
 
 			<div class="modal-footer">

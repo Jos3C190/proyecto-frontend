@@ -7,6 +7,7 @@
 	import GenericConfirmModal from '$lib/components/ui/GenericConfirmModal.svelte';
 	import AmenityIcon from '$lib/components/ui/AmenityIcon.svelte';
 	import { createPersistence } from '$lib/utils/persistence';
+	import { X, Save } from 'lucide-svelte';
 	import '../../admin/adminPage.css';
 
 	const persistence = createPersistence({
@@ -299,27 +300,37 @@
 
 <!-- Modal Create/Edit -->
 {#if showModal}
-	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+	<div class="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-28">
 		<!-- Backdrop -->
-		<div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick={() => showModal = false}></div>
+		<div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick={() => showModal = false}></div>
 		
 		<!-- Modal Content -->
-		<div class="relative bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-8 animate-scale-in">
-			<h2 class="text-xl font-black font-['Outfit'] text-slate-900 dark:text-white mb-6">
-				{editingId ? 'Editar Amenidad' : 'Nueva Amenidad'}
-			</h2>
+		<div class="relative w-full max-w-xl bg-white dark:bg-[#11151d] rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col max-h-[80vh] animate-scale-in">
+			<!-- Header -->
+			<div class="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/50">
+				<div>
+					<h2 class="text-xl font-bold text-slate-900 dark:text-white font-['Outfit']">
+						{editingId ? 'Editar Amenidad' : 'Nueva Amenidad'}
+					</h2>
+					<p class="text-xs text-gray-500 mt-1">Configura el nombre y el ícono visual del catálogo de amenidades.</p>
+				</div>
+				<button onclick={() => showModal = false} class="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-500">
+					<X class="w-5 h-5" />
+				</button>
+			</div>
 
-			<div class="space-y-5">
+			<!-- Body -->
+			<div class="p-6 overflow-y-auto flex-1 space-y-5">
 				<!-- Name -->
 				<div class="admin-field">
-					<label>Nombre</label>
-					<input type="text" bind:value={form.name} placeholder="Ej. WiFi de Alta Velocidad" class="!rounded-2xl" required />
+					<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Nombre <span class="text-red-500">*</span></label>
+					<input type="text" bind:value={form.name} placeholder="Ej. WiFi de Alta Velocidad" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all placeholder-gray-400" required />
 				</div>
 
 				<!-- Category -->
 				<div class="admin-field">
-					<label>Categoría</label>
-					<select bind:value={form.category_id} class="!rounded-2xl">
+					<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Categoría</label>
+					<select bind:value={form.category_id} class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all">
 						<option value={null}>Sin categoría</option>
 						{#each allCategories as cat}
 							<option value={cat.id}>{cat.name}</option>
@@ -329,12 +340,12 @@
 
 				<!-- Icon Selector -->
 				<div class="admin-field">
-					<label>Ícono <span class="text-slate-400 font-normal">(Lucide)</span></label>
-					<div class="grid grid-cols-6 sm:grid-cols-8 gap-2 mt-2 max-h-48 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-800/30 rounded-2xl border border-slate-100 dark:border-slate-800">
+					<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Ícono <span class="text-slate-400 font-normal">(Lucide)</span></label>
+					<div class="grid grid-cols-6 sm:grid-cols-8 gap-2 mt-2 max-h-48 overflow-y-auto p-2.5 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-200 dark:border-gray-700">
 						{#each ICON_OPTIONS as icon}
 							<button
 								type="button"
-								class="w-10 h-10 rounded-xl flex items-center justify-center transition-all {form.icon === icon ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30 scale-110' : 'bg-white dark:bg-slate-800 text-slate-500 hover:bg-amber-50 hover:text-amber-600 border border-slate-200 dark:border-slate-700'}"
+								class="w-10 h-10 rounded-xl flex items-center justify-center transition-all {form.icon === icon ? 'bg-[#D4AF37] text-white shadow-lg shadow-[#D4AF37]/30 scale-110' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-[#D4AF37]/10 hover:text-[#D4AF37] border border-gray-100 dark:border-gray-700'}"
 								onclick={() => form.icon = icon}
 								title={icon}
 							>
@@ -343,14 +354,18 @@
 						{/each}
 					</div>
 					{#if form.icon}
-						<p class="text-xs text-amber-600 font-mono mt-2">Seleccionado: <strong>{form.icon}</strong></p>
+						<p class="text-[10px] text-[#D4AF37] font-black uppercase tracking-widest mt-2">Seleccionado: <strong>{form.icon}</strong></p>
 					{/if}
 				</div>
 			</div>
 
-			<div class="flex items-center justify-end gap-3 mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
-				<button type="button" class="admin-btn-secondary px-6" onclick={() => showModal = false}>Cancelar</button>
-				<button type="button" class="admin-btn px-8" onclick={handleSave}>
+			<!-- Footer -->
+			<div class="p-6 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-3 bg-gray-50/50 dark:bg-gray-900/50">
+				<button type="button" class="px-5 py-2.5 text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors" onclick={() => showModal = false}>
+					Cancelar
+				</button>
+				<button type="button" class="px-5 py-2.5 bg-[#D4AF37] hover:from-[#f3cd54] hover:to-[#c69a2b] text-white rounded-xl text-sm font-bold shadow-lg shadow-[#D4AF37]/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2" onclick={handleSave}>
+					<Save class="w-4 h-4" />
 					{editingId ? 'Guardar Cambios' : 'Crear Amenidad'}
 				</button>
 			</div>

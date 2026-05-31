@@ -18,6 +18,7 @@
 	import type { RoleRead } from '$lib/types';
 	import GenericConfirmModal from '$lib/components/ui/GenericConfirmModal.svelte';
 	import { createPersistence } from '$lib/utils/persistence';
+	import { X, Save, Plus, Trash2 } from 'lucide-svelte';
 	import '../adminPage.css';
 
 	const persistence = createPersistence({
@@ -359,42 +360,71 @@ function setPageSize(e: Event) {
 </div>
 
 {#if showCreate}
-	<div class="admin-modal-overlay" role="dialog" aria-modal="true">
-		<div class="admin-modal">
-			<h2 class="admin-modal-title">Nueva política de permiso</h2>
-			<form onsubmit={handleCreate}>
-				{#if formError}
-					<div class="admin-error mb-4">{formError}</div>
-				{/if}
-				<div class="admin-field">
-					<label for="policy-sub">Rol (sub)</label>
-					<select id="policy-sub" bind:value={formData.sub} required>
-						<option value="" disabled>Selecciona un rol</option>
-						{#each roles as r}
-							<option value={r.name}>{r.name}{r.description ? ` — ${r.description}` : ''}</option>
-						{/each}
-					</select>
+	<div class="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-28">
+		<!-- Backdrop -->
+		<div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick={closeModal}></div>
+		
+		<!-- Modal Content -->
+		<div class="relative w-full max-w-xl bg-white dark:bg-[#11151d] rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col max-h-[80vh] animate-scale-in">
+			<!-- Header -->
+			<div class="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/50">
+				<div>
+					<h2 class="text-xl font-bold text-slate-900 dark:text-white font-['Outfit']">Nueva Política de Permiso</h2>
+					<p class="text-xs text-gray-500 mt-1">Configura una regla de control de acceso para roles, recursos y acciones.</p>
 				</div>
-				<div class="admin-field">
-					<label for="policy-obj">Recurso (obj)</label>
-					<select id="policy-obj" bind:value={formData.obj} required>
-						{#each resources as res}
-							<option value={res}>{res}</option>
-						{/each}
-					</select>
+				<button onclick={closeModal} class="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-500">
+					<X class="w-5 h-5" />
+				</button>
+			</div>
+
+			<!-- Body -->
+			<form onsubmit={handleCreate} class="flex flex-col flex-1 overflow-hidden">
+				<div class="p-6 overflow-y-auto flex-1 space-y-5">
+					{#if formError}
+						<div class="admin-error mb-4">{formError}</div>
+					{/if}
+					
+					<div class="admin-field">
+						<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5" for="policy-sub">Rol (sub) <span class="text-red-500">*</span></label>
+						<select id="policy-sub" bind:value={formData.sub} class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all font-bold" required>
+							<option value="" disabled>Selecciona un rol</option>
+							{#each roles as r}
+								<option value={r.name}>{r.name}{r.description ? ` — ${r.description}` : ''}</option>
+							{/each}
+						</select>
+					</div>
+
+					<div class="admin-field">
+						<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5" for="policy-obj">Recurso (obj) <span class="text-red-500">*</span></label>
+						<select id="policy-obj" bind:value={formData.obj} class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all font-bold" required>
+							{#each resources as res}
+								<option value={res}>{res}</option>
+							{/each}
+						</select>
+					</div>
+
+					<div class="admin-field">
+						<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5" for="policy-act">Acción (act) <span class="text-red-500">*</span></label>
+						<select id="policy-act" bind:value={formData.act} class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all font-bold" required>
+							{#each actions as a}
+								<option value={a}>{a}</option>
+							{/each}
+						</select>
+					</div>
 				</div>
-				<div class="admin-field">
-					<label for="policy-act">Acción (act)</label>
-					<select id="policy-act" bind:value={formData.act} required>
-						{#each actions as a}
-							<option value={a}>{a}</option>
-						{/each}
-					</select>
-				</div>
-				<div class="admin-modal-actions">
-					<button type="button" class="admin-btn-secondary" onclick={closeModal}>Cancelar</button>
-					<button type="submit" class="admin-btn" disabled={formLoading}>
-						{formLoading ? 'Guardando...' : 'Crear'}
+
+				<!-- Footer -->
+				<div class="p-6 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-3 bg-gray-50/50 dark:bg-gray-900/50">
+					<button type="button" class="px-5 py-2.5 text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors" onclick={closeModal}>
+						Cancelar
+					</button>
+					<button type="submit" class="px-5 py-2.5 bg-[#D4AF37] hover:from-[#f3cd54] hover:to-[#c69a2b] text-white rounded-xl text-sm font-bold shadow-lg shadow-[#D4AF37]/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2" disabled={formLoading}>
+						{#if formLoading}
+							<div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+						{:else}
+							<Save class="w-4 h-4" />
+						{/if}
+						{formLoading ? 'Guardando...' : 'Crear Política'}
 					</button>
 				</div>
 			</form>
@@ -403,47 +433,68 @@ function setPageSize(e: Event) {
 {/if}
 
 {#if showResourceModal}
-	<div class="admin-modal-overlay" role="dialog" aria-modal="true">
-		<div class="admin-modal max-w-lg">
-			<h2 class="admin-modal-title">Gestión de Recursos</h2>
-			<p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Administra los recursos sobre los que se aplican los permisos.</p>
-			
-			<div class="mb-6 max-h-60 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-lg p-2">
-				{#if resources.length === 0}
-					<p class="text-sm text-slate-500 p-2">No hay recursos disponibles.</p>
-				{:else}
-					<ul class="space-y-1">
-						{#each resources as res}
-							<li class="flex items-center justify-between p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded">
-								<span class="font-medium text-slate-700 dark:text-slate-200">{res}</span>
-								{#if res !== '*'}
-									<button type="button" class="text-red-500 hover:text-red-700 text-sm font-bold px-2 py-1" onclick={() => handleDeleteResource(res)}>
-										Eliminar
-									</button>
-								{/if}
-							</li>
-						{/each}
-					</ul>
+	<div class="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-28">
+		<!-- Backdrop -->
+		<div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick={() => showResourceModal = false}></div>
+		
+		<!-- Modal Content -->
+		<div class="relative w-full max-w-xl bg-white dark:bg-[#11151d] rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col max-h-[80vh] animate-scale-in">
+			<!-- Header -->
+			<div class="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/50">
+				<div>
+					<h2 class="text-xl font-bold text-slate-900 dark:text-white font-['Outfit']">Gestión de Recursos</h2>
+					<p class="text-xs text-gray-500 mt-1">Administra los recursos lógicos sobre los que se aplican las políticas.</p>
+				</div>
+				<button onclick={() => showResourceModal = false} class="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-500">
+					<X class="w-5 h-5" />
+				</button>
+			</div>
+
+			<!-- Add Resource Form -->
+			<div class="p-6 bg-gray-50/30 dark:bg-gray-900/30 border-b border-gray-100 dark:border-gray-800">
+				<form onsubmit={handleCreateResource} class="flex flex-col sm:flex-row gap-3 items-end">
+					<div class="w-full sm:flex-1">
+						<label class="text-[10px] font-black text-gray-400 mb-1.5 block uppercase tracking-wider" for="new-resource">Agregar Recurso <span class="text-red-500">*</span></label>
+						<input id="new-resource" type="text" bind:value={newResourceName} placeholder="Ej. reportes, clientes" class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all placeholder-gray-400" required disabled={resourceLoading} />
+					</div>
+					<button type="submit" class="w-full sm:w-auto px-5 py-2.5 bg-[#D4AF37] hover:from-[#f3cd54] hover:to-[#c69a2b] text-white rounded-xl text-sm font-bold shadow-lg shadow-[#D4AF37]/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shrink-0" disabled={resourceLoading}>
+						<Plus class="w-4 h-4" />
+						Añadir
+					</button>
+				</form>
+				{#if formError}
+					<div class="admin-error mt-3">{formError}</div>
 				{/if}
 			</div>
 
-			<form onsubmit={handleCreateResource}>
-				{#if formError}
-					<div class="admin-error mb-4">{formError}</div>
-				{/if}
-				<div class="admin-field">
-					<label for="new-resource">Agregar nuevo recurso</label>
-					<div class="flex gap-2">
-						<input id="new-resource" type="text" bind:value={newResourceName} placeholder="Ej. reportes" class="flex-1" required />
-						<button type="submit" class="admin-btn whitespace-nowrap" disabled={resourceLoading}>
-							{resourceLoading ? '...' : 'Añadir'}
-						</button>
+			<!-- List -->
+			<div class="p-6 overflow-y-auto flex-1">
+				{#if resources.length === 0}
+					<div class="text-center p-8 text-gray-500 text-sm font-medium">
+						No hay recursos registrados.
 					</div>
-				</div>
-				<div class="admin-modal-actions mt-6">
-					<button type="button" class="admin-btn-secondary w-full" onclick={() => showResourceModal = false}>Cerrar</button>
-				</div>
-			</form>
+				{:else}
+					<div class="space-y-2">
+						{#each resources as res}
+							<div class="flex items-center justify-between p-3.5 bg-white dark:bg-[#11151d] border border-gray-100 dark:border-gray-800 rounded-2xl group hover:border-[#D4AF37]/30 transition-colors">
+								<span class="text-sm font-bold text-slate-700 dark:text-gray-200 pl-1">{res}</span>
+								{#if res !== '*'}
+									<button type="button" class="p-2 text-gray-400 hover:text-red-650 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl opacity-0 group-hover:opacity-100 transition-all" onclick={() => handleDeleteResource(res)} title="Eliminar recurso">
+										<Trash2 class="w-4 h-4" />
+									</button>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+
+			<!-- Footer -->
+			<div class="p-6 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end bg-gray-50/50 dark:bg-gray-900/50">
+				<button type="button" onclick={() => showResourceModal = false} class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 text-sm font-bold rounded-xl transition-colors">
+					Cerrar
+				</button>
+			</div>
 		</div>
 	</div>
 {/if}

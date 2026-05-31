@@ -70,6 +70,11 @@
 			if (nameSetting) hotelInfo.name = nameSetting;
 			if (phoneSetting) hotelInfo.phone = phoneSetting;
 			if (emailSetting) hotelInfo.email = emailSetting;
+
+			const ivaSetting = sysRes.find(s => s.key === 'tax_iva_rate')?.value;
+			const tourismSetting = sysRes.find(s => s.key === 'tax_tourism_rate')?.value;
+			if (ivaSetting) ivaRate = parseFloat(ivaSetting) / 100.0;
+			if (tourismSetting) tourismRate = parseFloat(tourismSetting) / 100.0;
 		} catch (err: any) {
 			error = err.message || 'Error al cargar detalle';
 		} finally {
@@ -143,7 +148,7 @@
 			parts.push(countryName);
 		}
 		
-		return parts.length > 0 ? parts.join(', ').toUpperCase() : 'CIUDAD';
+		return parts.length > 0 ? parts.join(', ').toUpperCase() : 'EL SALVADOR';
 	}
 
 	function numeroALetras(num: number): string {
@@ -223,18 +228,100 @@
 
 	let isFiscalCredit = $derived(payment?.receipt_type === 'fiscal_credit');
 	
-	// Helper to calculate proportions if the payment is partial
-	let subtotal = $derived(payment?.reservation?.subtotal || 0);
-	let iva = $derived(payment?.reservation?.tax_iva || 0);
-	let tourism = $derived(payment?.reservation?.tax_tourism || 0);
-	let total_cost = $derived(payment?.reservation?.total_cost || 1); // Avoid div by zero
+	let ivaRate = $state(0.13);
+	let tourismRate = $state(0.05);
 
-	// Factor to apply to the taxes based on this payment's amount
-	let paymentFactor = $derived((payment?.amount || 0) / total_cost);
+	let currentSubtotal = $derived(
+		Number(payment?.receipt_data?.room_base || 0) +
+		Number(payment?.receipt_data?.extras_base || 0) +
+		Number(payment?.receipt_data?.incidentals_base || 0)
+	);
+	
+	let currentIva = $derived(
+		Number(payment?.receipt_data?.room_iva || 0) +
+		Number(payment?.receipt_data?.extras_iva || 0) +
+		Number(payment?.receipt_data?.incidentals_iva || 0)
+	);
+	
+	let currentTourism = $derived(
+		Number(payment?.receipt_data?.room_tourism || 0)
+	);
 
-	let currentSubtotal = $derived(subtotal * paymentFactor);
-	let currentIva = $derived(iva * paymentFactor);
-	let currentTourism = $derived(tourism * paymentFactor);
+	// Reconstrucción del listado de ítems cobrados con fallback de compatibilidad
+	let items = $derived.by(() => {
+		if (!payment?.receipt_data) return [];
+		
+		const data = payment.receipt_data;
+		
+		// Usar items mapeados por el motor de imputación si ya existen
+		if (data.items && data.items.length > 0) {
+			return data.items;
+		}
+		
+		// Fallback para recibos históricos (Legacy)
+		const roomBase = Number(data.room_base || 0);
+		const roomIva = Number(data.room_iva || 0);
+		const roomTourism = Number(data.room_tourism || 0);
+		const roomNum = data.room_number || '---';
+		const resId = data.reservation_id || '---';
+		
+		let list: any[] = [];
+		if (roomBase > 0.01) {
+			list.push({
+				type: 'room',
+				code: `SRV-HOSP-${roomNum}`,
+				name: `Servicio de Alojamiento (Hab #${roomNum}) - Reserva ${resId}`,
+				quantity: 1.0,
+				unit_price: roomBase,
+				apply_tax: true,
+				total_amount: roomBase,
+				tax: roomIva,
+				tourism: roomTourism,
+				total: roomBase + roomIva + roomTourism
+			});
+		}
+		
+		const extras = data.extras || [];
+		extras.forEach((ex: any, idx: number) => {
+			const qty = Number(ex.quantity || 1);
+			const totalNet = Number(ex.total_price || (ex.unit_price || 0) * qty);
+			const taxVal = totalNet * ivaRate;
+			list.push({
+				type: 'extra',
+				code: `SRV-EXTRA-${idx + 1}`,
+				name: `AMENIDAD EXTRA: ${(ex.name || 'Amenidad').toUpperCase()}`,
+				quantity: qty,
+				unit_price: Number(ex.unit_price || 0),
+				apply_tax: true,
+				total_amount: totalNet,
+				tax: taxVal,
+				tourism: 0,
+				total: totalNet + taxVal
+			});
+		});
+		
+		const incidentals = data.incidentals || [];
+		incidentals.forEach((inc: any, idx: number) => {
+			const qty = Number(inc.quantity || 1);
+			const totalNet = Number(inc.total_amount || (inc.amount || 0) * qty);
+			const applyTax = inc.apply_tax !== false;
+			const taxVal = applyTax ? totalNet * ivaRate : 0;
+			list.push({
+				type: 'incidental',
+				code: `SRV-INC-${idx + 1}`,
+				name: `CARGO INCIDENTAL: ${(inc.description || 'Cargo').toUpperCase()}`,
+				quantity: qty,
+				unit_price: Number(inc.amount || 0),
+				apply_tax: applyTax,
+				total_amount: totalNet,
+				tax: taxVal,
+				tourism: 0,
+				total: totalNet + taxVal
+			});
+		});
+		
+		return list;
+	});
 </script>
 
 <svelte:head>
@@ -374,31 +461,35 @@
 						</tr>
 					</thead>
 					<tbody>
+						{#each items as item, idx}
 						<tr>
-							<td class="border-r border-[#000000] p-1">1</td>
-							<td class="border-r border-[#000000] p-1">1.00</td>
+							<td class="border-r border-[#000000] p-1">{idx + 1}</td>
+							<td class="border-r border-[#000000] p-1">{Number(item.quantity).toFixed(2)}</td>
 							<td class="border-r border-[#000000] p-1">Servicio</td>
 							<td class="border-r border-[#000000] p-1 text-left">
-								Servicio de Alojamiento (Hab #{payment.receipt_data?.room_number || '---'})<br>
+								{item.name}<br>
 								<span class="text-[9px] text-[#475569]">Ref: {payment.reservation?.unique_id}</span>
 							</td>
-							<!-- En Credito Fiscal el Unitario no lleva IVA -->
 							<td class="border-r border-[#000000] p-1 text-right">
-								${isFiscalCredit ? Number(currentSubtotal).toFixed(2) : (Number(currentSubtotal) + Number(currentIva)).toFixed(2)}
+								${(!isFiscalCredit && item.apply_tax) ? (Number(item.unit_price) * (1 + ivaRate)).toFixed(2) : Number(item.unit_price).toFixed(2)}
 							</td>
 							<td class="border-r border-[#000000] p-1 text-right">$0.00</td>
-							<td class="border-r border-[#000000] p-1 text-right">$0.00</td>
+							<td class="border-r border-[#000000] p-1 text-right">
+								${item.apply_tax ? '0.00' : Number(item.total_amount).toFixed(2)}
+							</td>
 							<td class="p-1 text-right">
-								${isFiscalCredit ? Number(currentSubtotal).toFixed(2) : (Number(currentSubtotal) + Number(currentIva)).toFixed(2)}
+								${item.apply_tax ? (isFiscalCredit ? Number(item.total_amount).toFixed(2) : (Number(item.total_amount) + Number(item.tax)).toFixed(2)) : '0.00'}
 							</td>
 						</tr>
+						{/each}
+
 						<!-- Row for Tourism Tax if exists -->
 						{#if currentTourism > 0}
 						<tr>
-							<td class="border-r border-[#000000] p-1">2</td>
+							<td class="border-r border-[#000000] p-1">{items.length + 1}</td>
 							<td class="border-r border-[#000000] p-1">1.00</td>
 							<td class="border-r border-[#000000] p-1">Impuesto</td>
-							<td class="border-r border-[#000000] p-1 text-left">Impuesto de Turismo (5%)</td>
+							<td class="border-r border-[#000000] p-1 text-left">Impuesto de Turismo ({Math.round(tourismRate * 100)}%)</td>
 							<td class="border-r border-[#000000] p-1 text-right">${Number(currentTourism).toFixed(2)}</td>
 							<td class="border-r border-[#000000] p-1 text-right">$0.00</td>
 							<td class="border-r border-[#000000] p-1 text-right">$0.00</td>
@@ -428,7 +519,7 @@
 									<td class="p-1 border-b border-[#000000] w-[96px]">${Number(currentSubtotal).toFixed(2)}</td>
 								</tr>
 								<tr>
-									<td class="border-r border-b border-[#000000] p-1 font-bold">IVA 13%:</td>
+									<td class="border-r border-b border-[#000000] p-1 font-bold">IVA {Math.round(ivaRate * 100)}%:</td>
 									<td class="p-1 border-b border-[#000000]">${Number(currentIva).toFixed(2)}</td>
 								</tr>
 								<tr>
@@ -448,7 +539,7 @@
 							
 							{#if currentTourism > 0}
 							<tr>
-								<td class="border-r border-b border-[#000000] p-1 font-bold">Impuesto de Turismo (5%):</td>
+								<td class="border-r border-b border-[#000000] p-1 font-bold">Impuesto de Turismo ({Math.round(tourismRate * 100)}%):</td>
 								<td class="p-1 border-b border-[#000000]">${Number(currentTourism).toFixed(2)}</td>
 							</tr>
 							{/if}

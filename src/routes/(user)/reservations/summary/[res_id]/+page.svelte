@@ -367,9 +367,60 @@
 						</div>
 					{/if}
 
+					{#if reservation.incidental_charges && reservation.incidental_charges.length > 0}
+						<div class="rounded-2xl border border-slate-200/50 bg-white/70 backdrop-blur-xl p-8 shadow-xl dark:border-slate-800/50 dark:bg-slate-900/60 animate-in fade-in duration-300">
+							<h3 class="font-['Outfit'] text-xl font-medium text-slate-800 dark:text-[#D4AF37] mb-6 border-b border-slate-200/50 dark:border-slate-700/50 pb-4 flex items-center gap-2">
+								🛡️ Cargos Adicionales / Incidentales
+							</h3>
+							<div class="space-y-4">
+								{#each reservation.incidental_charges as charge}
+									<div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between gap-4">
+										<div class="flex items-center gap-3 min-w-0">
+											<div class="w-10 h-10 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shrink-0">
+												{#if charge.evidence_url}
+													<a href={charge.evidence_url} target="_blank" title="Ver foto de evidencia">
+														<img src={charge.evidence_url} alt="Evidencia" class="w-full h-full object-cover" />
+													</a>
+												{:else}
+													<span class="text-xl">🧾</span>
+												{/if}
+											</div>
+											<div class="min-w-0">
+												<div class="flex items-center gap-2">
+													<p class="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{charge.description}</p>
+													<span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-200/50 dark:bg-slate-800 text-slate-500 font-bold uppercase">{charge.category?.name || 'Otros'}</span>
+												</div>
+												<p class="text-xs text-slate-500 mt-0.5">
+													{charge.quantity} x ${Number(charge.amount).toFixed(2)}
+													{#if !charge.apply_tax}
+														<span class="text-slate-400 font-normal lowercase">(exento de IVA)</span>
+													{/if}
+												</p>
+												{#if charge.payment_status === 'waived' && charge.waived_reason}
+													<p class="text-[10px] text-rose-500 font-medium italic mt-1 bg-rose-500/5 p-1 rounded border border-rose-500/10">Exonerado: "{charge.waived_reason}"</p>
+												{/if}
+											</div>
+										</div>
+										<div class="text-right flex flex-col items-end gap-1.5 shrink-0">
+											<p class="text-sm font-bold text-slate-800 dark:text-slate-200">
+												${(Number(charge.total_amount) * (charge.apply_tax ? 1.13 : 1)).toFixed(2)}
+											</p>
+											<span class="inline-block px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider 
+												{charge.payment_status === 'paid' ? 'bg-green-55/10 text-green-700 dark:bg-green-900/20 dark:text-green-400 border border-green-500/10' : 
+												 charge.payment_status === 'waived' ? 'bg-indigo-50/10 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 border border-indigo-500/10' : 
+												 'bg-orange-50/10 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400 border border-orange-500/10'}">
+												{charge.payment_status === 'paid' ? 'Pagado' : charge.payment_status === 'waived' ? 'Exonerado' : 'Pendiente'}
+											</span>
+										</div>
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/if}
+
 					{#if checkInIsUpcoming(reservation.check_in) && reservation.status !== 'cancelled'}
 						<div class="rounded-2xl border border-slate-200/50 bg-white/70 backdrop-blur-xl p-8 shadow-xl dark:border-slate-800/50 dark:bg-slate-900/60 animate-in fade-in duration-300 space-y-6">
-							<div class="border-b border-slate-200/50 dark:border-slate-700/50 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+							<div class="border-b border-slate-200/50 dark:border-slate-700/50 pb-5 flex flex-col gap-4">
 								<div>
 									<h3 class="font-['Outfit'] text-xl font-medium text-slate-800 dark:text-[#D4AF37] flex items-center gap-2">
 										✨ Mejora tu Experiencia
@@ -377,20 +428,29 @@
 									<p class="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">Personaliza tu estancia con servicios y amenidades exclusivas.</p>
 								</div>
 								
-								<!-- Categories Filter Tabs -->
+								<!-- Categories Filter Tabs (Responsive: Scrollable on mobile, wrapped on desktop) -->
 								{#if categories().length > 2}
-									<div class="flex gap-1 overflow-x-auto pb-1 scrollbar-none shrink-0 bg-slate-100/80 dark:bg-slate-950/40 p-1 rounded-xl">
-										{#each categories() as cat}
-											<button 
-												onclick={() => selectedCategory = cat}
-												class="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap
-													{selectedCategory === cat 
-														? 'bg-white dark:bg-slate-800 text-[#D4AF37] shadow-sm' 
-														: 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'}"
-											>
-												{cat === 'all' ? 'Todos' : cat}
-											</button>
-										{/each}
+									<div class="relative w-full">
+										<!-- Left fade shadow (Mobile only) -->
+										<div class="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white dark:from-slate-900 to-transparent pointer-events-none z-10 md:hidden"></div>
+										
+										<!-- Container: Scrollable on mobile, wrapped on desktop -->
+										<div class="flex gap-2 overflow-x-auto md:flex-wrap md:overflow-visible py-1 scrollbar-none w-full">
+											{#each categories() as cat}
+												<button 
+													onclick={() => selectedCategory = cat}
+													class="px-5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap select-none border
+														{selectedCategory === cat 
+															? 'bg-[#D4AF37] border-[#D4AF37] text-slate-950 shadow-md shadow-[#D4AF37]/20 scale-[1.02]' 
+															: 'bg-slate-50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/80 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/40'}"
+												>
+													{cat === 'all' ? 'Todos' : cat}
+												</button>
+											{/each}
+										</div>
+
+										<!-- Right fade shadow (Mobile only) -->
+										<div class="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-slate-900 to-transparent pointer-events-none z-10 md:hidden"></div>
 									</div>
 								{/if}
 							</div>
@@ -447,107 +507,128 @@
 					{/if}
 				</div>
 				
-				<div class="lg:col-span-1 lg:sticky lg:top-24 h-fit rounded-2xl border border-[#D4AF37]/20 bg-gradient-to-br from-slate-50 to-white backdrop-blur-xl p-8 shadow-xl dark:from-slate-800/80 dark:to-slate-900/80 flex flex-col justify-between relative overflow-hidden min-h-[320px]">
-					<div class="absolute -top-10 -right-10 w-32 h-32 bg-[#D4AF37]/10 rounded-full blur-2xl"></div>
-					<div class="absolute -bottom-10 -left-10 w-32 h-32 bg-[#D4AF37]/10 rounded-full blur-2xl"></div>
-					
-					<div class="relative z-10 space-y-4 w-full text-left">
-						<h3 class="font-['Outfit'] text-sm tracking-widest uppercase font-semibold text-slate-500 dark:text-[#D4AF37] border-b border-slate-200 dark:border-slate-700/50 pb-2">
-							Resumen Financiero
-						</h3>
+				<div class="lg:col-span-1 lg:sticky lg:top-24 space-y-6 h-fit">
+					<!-- Financial Summary Card -->
+					<div class="rounded-2xl border border-[#D4AF37]/20 bg-gradient-to-br from-slate-50 to-white backdrop-blur-xl p-8 shadow-xl dark:from-slate-800/80 dark:to-slate-900/80 flex flex-col justify-between relative overflow-hidden min-h-[320px] w-full">
+						<div class="absolute -top-10 -right-10 w-32 h-32 bg-[#D4AF37]/10 rounded-full blur-2xl"></div>
+						<div class="absolute -bottom-10 -left-10 w-32 h-32 bg-[#D4AF37]/10 rounded-full blur-2xl"></div>
 						
-						<div class="space-y-2.5 text-xs">
-							<div class="flex justify-between">
-								<span class="text-slate-500 dark:text-slate-400">Habitación (con Impuestos)</span>
-								<span class="font-bold text-slate-800 dark:text-slate-200">${Number(reservation.total_cost).toFixed(2)}</span>
-							</div>
+						<div class="relative z-10 space-y-4 w-full text-left">
+							<h3 class="font-['Outfit'] text-sm tracking-widest uppercase font-semibold text-slate-500 dark:text-[#D4AF37] border-b border-slate-200 dark:border-slate-700/50 pb-2">
+								Resumen Financiero
+							</h3>
 							
-							{#if Number(reservation.extras_total || 0) > 0}
+							<div class="space-y-2.5 text-xs">
 								<div class="flex justify-between">
-									<span class="text-slate-500 dark:text-slate-400">Extras contratados</span>
-									<span class="font-bold text-slate-800 dark:text-slate-200">${Number(reservation.extras_total).toFixed(2)}</span>
+									<span class="text-slate-500 dark:text-slate-400">Habitación (con Impuestos)</span>
+									<span class="font-bold text-slate-800 dark:text-slate-200">${Number(reservation.total_cost).toFixed(2)}</span>
 								</div>
-								<div class="flex justify-between">
-									<span class="text-slate-500 dark:text-slate-400">IVA Extras (13%)</span>
-									<span class="font-bold text-slate-800 dark:text-slate-200">${(Number(reservation.extras_total) * 0.13).toFixed(2)}</span>
+								
+								{#if Number(reservation.extras_total || 0) > 0}
+									<div class="flex justify-between">
+										<span class="text-slate-500 dark:text-slate-400">Extras contratados</span>
+										<span class="font-bold text-slate-800 dark:text-slate-200">${Number(reservation.extras_total).toFixed(2)}</span>
+									</div>
+									<div class="flex justify-between">
+										<span class="text-slate-500 dark:text-slate-400">IVA Extras (13%)</span>
+										<span class="font-bold text-slate-800 dark:text-slate-200">${(Number(reservation.extras_total) * 0.13).toFixed(2)}</span>
+									</div>
+								{/if}
+								
+								{#if Number(reservation.incidentals_total || 0) > 0}
+									<div class="flex justify-between">
+										<span class="text-slate-500 dark:text-slate-400">Cargos incidentales</span>
+										<span class="font-bold text-slate-800 dark:text-slate-200">${Number(reservation.incidentals_total).toFixed(2)}</span>
+									</div>
+									<div class="flex justify-between">
+										<span class="text-slate-500 dark:text-slate-400">IVA Incidentales (13%)</span>
+										<span class="font-bold text-slate-800 dark:text-slate-200">${(Number(reservation.incidentals_total) * 0.13).toFixed(2)}</span>
+									</div>
+								{/if}
+								
+								<div class="flex justify-between border-t border-dashed border-slate-200 dark:border-slate-700 pt-2.5 font-['Outfit'] text-sm">
+									<span class="font-medium text-slate-600 dark:text-slate-300">Gran Total</span>
+									<span class="font-black text-[#D4AF37]">${Number(reservation.grand_total ?? reservation.total_cost).toFixed(2)}</span>
 								</div>
-							{/if}
-							
-							<div class="flex justify-between border-t border-dashed border-slate-200 dark:border-slate-700 pt-2.5 font-['Outfit'] text-sm">
-								<span class="font-medium text-slate-600 dark:text-slate-300">Gran Total</span>
-								<span class="font-black text-[#D4AF37]">${Number(reservation.grand_total ?? reservation.total_cost).toFixed(2)}</span>
-							</div>
-							
-							<div class="flex justify-between border-t border-dotted border-slate-200 dark:border-slate-700 pt-2.5 text-xs">
-								<span class="text-slate-500 dark:text-slate-400">Total Pagado</span>
-								<span class="font-bold text-green-600 dark:text-green-400">${Number(reservation.total_paid || 0).toFixed(2)}</span>
+								
+								<div class="flex justify-between border-t border-dotted border-slate-200 dark:border-slate-700 pt-2.5 text-xs">
+									<span class="text-slate-500 dark:text-slate-400">Total Pagado</span>
+									<span class="font-bold text-green-600 dark:text-green-400">${Number(reservation.total_paid || 0).toFixed(2)}</span>
+								</div>
 							</div>
 						</div>
+						
+						<div class="relative z-10 text-center mt-6 pt-4 border-t border-slate-200 dark:border-slate-700/50 w-full">
+							<p class="text-[10px] font-black text-slate-500 dark:text-[#D4AF37]/80 uppercase tracking-widest mb-1">
+								{(reservation.balance || 0) > 0 ? 'Saldo Pendiente' : (reservation.balance || 0) < 0 ? 'Saldo a Favor' : 'Folio Saldado'}
+							</p>
+							<p class="text-4xl font-['Outfit'] font-black {(reservation.balance || 0) < 0 ? 'text-indigo-500 dark:text-indigo-400' : (reservation.balance || 0) > 0 ? 'text-rose-500' : 'text-emerald-500'}">
+								${Math.abs(Number(reservation.balance || 0)).toFixed(2)}
+							</p>
+							<p class="text-[9px] text-slate-400 dark:text-slate-500 mt-2">Cargos e impuestos incluidos</p>
+						</div>
 					</div>
-					
-					<div class="relative z-10 text-center mt-6 pt-4 border-t border-slate-200 dark:border-slate-700/50 w-full">
-						<p class="text-[10px] font-black text-slate-500 dark:text-[#D4AF37]/80 uppercase tracking-widest mb-1">
-							{(reservation.balance || 0) > 0 ? 'Saldo Pendiente' : (reservation.balance || 0) < 0 ? 'Saldo a Favor' : 'Folio Saldado'}
-						</p>
-						<p class="text-4xl font-['Outfit'] font-black {(reservation.balance || 0) < 0 ? 'text-indigo-500 dark:text-indigo-400' : (reservation.balance || 0) > 0 ? 'text-rose-500' : 'text-emerald-500'}">
-							${Math.abs(Number(reservation.balance || 0)).toFixed(2)}
-						</p>
-						<p class="text-[9px] text-slate-400 dark:text-slate-500 mt-2">Cargos e impuestos incluidos</p>
+
+					<!-- Action Buttons (Placed inside sticky column, below Resumen Financiero card) -->
+					<div class="flex flex-col gap-3 w-full animate-in fade-in duration-300">
+						{#if reservation.status !== 'cancelled' && reservation.status !== 'completed'}
+							{#if (reservation.balance || 0) > 0 && reservation.status !== 'verifying'}
+								<a href="/payments/{reservation.id}" class="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA8222] text-xs font-black uppercase tracking-widest text-slate-900 transition hover:from-[#f3cd54] hover:to-[#c69a2b] shadow-lg shadow-[#D4AF37]/20 text-center">
+									Proceder al Pago
+								</a>
+							{:else if reservation.status === 'confirmed'}
+								{#if Number(reservation.balance || 0) > 0}
+									<a href="/payments/{reservation.id}" class="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-fuchsia-600 to-fuchsia-800 text-xs font-black uppercase tracking-widest text-white transition hover:from-fuchsia-500 hover:to-fuchsia-700 shadow-lg shadow-fuchsia-600/20 text-center">
+										Pagar Saldo Extra
+									</a>
+								{/if}
+							{/if}
+						{/if}
+
+						<a href="/profile/reservations" class="w-full px-6 py-3 rounded-xl border border-slate-300 bg-white/50 backdrop-blur-sm text-xs font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white text-center shadow-sm transition-colors">
+							Volver a Reservas
+						</a>
+						
+						{#if reservation.status !== 'cancelled' && reservation.status !== 'completed'}
+							{#if (reservation.balance || 0) > 0 && reservation.status !== 'verifying'}
+								<button class="w-full px-6 py-3 rounded-xl border border-red-200 bg-red-50/50 text-xs font-bold uppercase tracking-widest text-red-600 transition hover:bg-red-100 dark:border-red-900/30 dark:bg-red-500/10 dark:text-red-450 dark:hover:bg-red-500/20 shadow-sm" onclick={handleCancel} disabled={cancelLoading}>
+									{cancelLoading ? 'Procesando...' : 'Cancelar Reserva'}
+								</button>
+							{:else if reservation.status === 'confirmed'}
+								<button class="w-full px-6 py-3 rounded-xl border border-red-200 bg-red-50/50 text-xs font-bold uppercase tracking-widest text-red-600 transition hover:bg-red-100 dark:border-red-900/30 dark:bg-red-500/10 dark:text-red-450 dark:hover:bg-red-500/20 shadow-sm" onclick={handleCancel} disabled={cancelLoading}>
+									{cancelLoading ? 'Procesando...' : 'Cancelar Reserva'}
+								</button>
+							{:else if reservation.status === 'verifying'}
+								{@const verifyingPayment = reservation.payments?.find(p => p.status === 'verifying')}
+								{#if verifyingPayment}
+									<button class="w-full px-6 py-3 rounded-xl border border-orange-200 bg-orange-50/50 text-xs font-bold uppercase tracking-widest text-orange-600 transition hover:bg-orange-100 shadow-sm dark:border-orange-900/30 dark:bg-orange-500/10 dark:text-orange-400 dark:hover:bg-orange-500/20" onclick={() => handleCancelPayment(verifyingPayment.id)} disabled={cancelLoading}>
+										{cancelLoading ? 'Procesando...' : 'Cancelar Pago Pendiente'}
+									</button>
+								{/if}
+							{/if}
+						{/if}
 					</div>
 				</div>
 			</div>
 
 			{#if reservation.status === 'confirmed' && Number(reservation.balance || 0) > 0}
-				<div class="mt-8 p-5 rounded-2xl border border-fuchsia-350 bg-gradient-to-r from-fuchsia-50/40 to-white/40 backdrop-blur-xl dark:border-fuchsia-900/30 dark:from-fuchsia-950/10 dark:to-transparent flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl shadow-fuchsia-500/5 animate-pulse text-left">
+				<div class="mt-8 p-5 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-50/40 to-white/40 backdrop-blur-xl dark:border-amber-500/20 dark:from-amber-500/5 dark:to-transparent flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl shadow-amber-500/5 animate-pulse text-left">
 					<div class="flex items-start gap-3">
-						<div class="w-10 h-10 rounded-full bg-fuchsia-100 dark:bg-fuchsia-950/60 flex items-center justify-center shrink-0 text-fuchsia-600 dark:text-fuchsia-400 text-lg">
+						<div class="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-500/10 flex items-center justify-center shrink-0 text-amber-600 dark:text-[#D4AF37] text-lg">
 							🔔
 						</div>
 						<div>
-							<h4 class="text-sm font-bold text-fuchsia-900 dark:text-fuchsia-300">¡Servicios Adicionales Pendientes de Pago!</h4>
-							<p class="text-xs text-fuchsia-700/80 dark:text-fuchsia-400/80 mt-1 leading-relaxed">
+							<h4 class="text-sm font-bold text-amber-900 dark:text-amber-300">¡Servicios Adicionales Pendientes de Pago!</h4>
+							<p class="text-xs text-amber-800/80 dark:text-amber-400/80 mt-1 leading-relaxed">
 								Has agregado nuevas experiencias a tu estancia. Por favor, liquida el saldo pendiente de <strong>${Number(reservation.balance).toFixed(2)}</strong> para garantizar la reserva de tus servicios extras.
 							</p>
 						</div>
 					</div>
-					<a href="/payments/{reservation.id}" class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-fuchsia-805 hover:from-fuchsia-500 hover:to-fuchsia-700 text-xs font-bold uppercase tracking-widest text-white transition-all shadow-md shadow-fuchsia-600/10 text-center shrink-0">
+					<a href="/payments/{reservation.id}" class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-900 dark:text-slate-950 text-xs font-black uppercase tracking-widest transition-all shadow-md shadow-amber-500/20 text-center shrink-0">
 						Pagar Saldo
 					</a>
 				</div>
 			{/if}
-
-			<div class="flex flex-col sm:flex-row gap-4 justify-end items-center mt-10">
-				<a href="/profile/reservations" class="w-full sm:w-auto px-8 py-3 rounded-xl border border-slate-300 bg-white/50 backdrop-blur-sm text-sm font-bold uppercase tracking-widest text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white text-center shadow-sm">
-					Volver a Reservas
-				</a>
-				
-				{#if reservation.status !== 'cancelled' && reservation.status !== 'completed'}
-					{#if (reservation.balance || 0) > 0 && reservation.status !== 'verifying'}
-						<button class="w-full sm:w-auto px-8 py-3 rounded-xl border border-red-200 bg-red-50/50 text-sm font-bold uppercase tracking-widest text-red-600 transition hover:bg-red-100 dark:border-red-900/30 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 shadow-sm" onclick={handleCancel} disabled={cancelLoading}>
-							{cancelLoading ? 'Procesando...' : 'Cancelar Reserva'}
-						</button>
-						<a href="/payments/{reservation.id}" class="w-full sm:w-auto px-8 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA8222] text-sm font-bold uppercase tracking-widest text-slate-900 transition hover:from-[#f3cd54] hover:to-[#c69a2b] shadow-lg shadow-[#D4AF37]/20 text-center">
-							Proceder al Pago
-						</a>
-					{:else if reservation.status === 'confirmed'}
-						<button class="w-full sm:w-auto px-8 py-3 rounded-xl border border-red-200 bg-red-50/50 text-sm font-bold uppercase tracking-widest text-red-600 transition hover:bg-red-100 dark:border-red-900/30 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 shadow-sm" onclick={handleCancel} disabled={cancelLoading}>
-							{cancelLoading ? 'Procesando...' : 'Cancelar Reserva'}
-						</button>
-						{#if Number(reservation.balance || 0) > 0}
-							<a href="/payments/{reservation.id}" class="w-full sm:w-auto px-8 py-3 rounded-xl bg-gradient-to-r from-fuchsia-600 to-fuchsia-800 text-sm font-bold uppercase tracking-widest text-white transition hover:from-fuchsia-500 hover:to-fuchsia-700 shadow-lg shadow-fuchsia-600/20 text-center">
-								Pagar Saldo Extra
-							</a>
-						{/if}
-					{:else if reservation.status === 'verifying'}
-						{@const verifyingPayment = reservation.payments?.find(p => p.status === 'verifying')}
-						{#if verifyingPayment}
-							<button class="w-full sm:w-auto px-8 py-3 rounded-xl border border-orange-200 bg-orange-50/50 text-sm font-bold uppercase tracking-widest text-orange-600 transition hover:bg-orange-100 shadow-sm dark:border-orange-900/30 dark:bg-orange-500/10 dark:text-orange-400 dark:hover:bg-orange-500/20" onclick={() => handleCancelPayment(verifyingPayment.id)} disabled={cancelLoading}>
-								{cancelLoading ? 'Procesando...' : 'Cancelar Pago Pendiente'}
-							</button>
-						{/if}
-					{/if}
-				{/if}
-			</div>
 		{/if}
 	</div>
 </div>
@@ -727,7 +808,7 @@
 {#if isDeleteExtraConfirmOpen}
 	<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
 		<div class="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-6 relative overflow-hidden text-center">
-			<div class="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950/30 text-red-650 dark:text-red-400 flex items-center justify-center mx-auto mb-4 text-xl">
+			<div class="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950/30 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto mb-4 text-xl">
 				⚠️
 			</div>
 			
@@ -737,7 +818,7 @@
 			<div class="flex gap-4">
 				<button 
 					onclick={() => isDeleteExtraConfirmOpen = false}
-					class="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-650 dark:text-slate-300 text-xs font-bold uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-850 transition-all"
+					class="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-850 transition-all"
 				>
 					Volver
 				</button>
@@ -763,5 +844,12 @@
 	@keyframes fadeIn {
 		from { opacity: 0; transform: translateY(10px); }
 		to { opacity: 1; transform: translateY(0); }
+	}
+	.scrollbar-none::-webkit-scrollbar {
+		display: none;
+	}
+	.scrollbar-none {
+		-ms-overflow-style: none;
+		scrollbar-width: none;
 	}
 </style>

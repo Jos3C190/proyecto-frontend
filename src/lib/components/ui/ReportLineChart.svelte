@@ -3,6 +3,7 @@
 		date: string;
 		value1: number; // Habitaciones
 		value2?: number; // Extras
+		value3?: number; // Incidentales
 	}
 
 	interface Props {
@@ -10,8 +11,11 @@
 		height?: number;
 		label1?: string;
 		label2?: string;
+		label3?: string;
 		color1?: string;
 		color2?: string;
+		color3?: string;
+		isCurrency?: boolean;
 	}
 
 	let {
@@ -19,17 +23,20 @@
 		height = 250,
 		label1 = 'Habitaciones',
 		label2 = 'Extras',
+		label3 = 'Incidentales',
 		color1 = '#D4AF37', // Gold
-		color2 = '#B87333'  // Copper
+		color2 = '#B87333', // Copper
+		color3 = '#10B981',  // Emerald Green
+		isCurrency = true
 	}: Props = $props();
 
 	let width = $state(0);
 	let padding = { top: 25, right: 20, bottom: 25, left: 20 };
 
-	// Find the maximum value across both metrics for scale
+	// Find the maximum value across all three metrics for scale
 	let maxVal = $derived(
 		Math.max(
-			...data.map(d => Math.max(d.value1, d.value2 ?? 0)),
+			...data.map(d => Math.max(d.value1, d.value2 ?? 0, d.value3 ?? 0)),
 			100
 		)
 	);
@@ -42,8 +49,11 @@
 			const y2 = d.value2 !== undefined
 				? height - ((d.value2 / maxVal) * (height - padding.top - padding.bottom) + padding.bottom)
 				: null;
+			const y3 = d.value3 !== undefined
+				? height - ((d.value3 / maxVal) * (height - padding.top - padding.bottom) + padding.bottom)
+				: null;
 
-			return { x, y1, y2, data: d };
+			return { x, y1, y2, y3, data: d };
 		})
 	);
 
@@ -60,6 +70,12 @@
 			: ''
 	);
 
+	let path3 = $derived(
+		points.length > 0 && points[0].y3 !== null
+			? `M ${points[0].x} ${points[0].y3} ` + points.slice(1).map(p => `L ${p.x} ${p.y3!}`).join(' ')
+			: ''
+	);
+
 	// Area path strings for elegant gradients
 	let area1 = $derived(
 		points.length > 0
@@ -70,6 +86,12 @@
 	let area2 = $derived(
 		points.length > 0 && points[0].y2 !== null
 			? `${path2} L ${points[points.length - 1].x} ${height - padding.bottom} L ${points[0].x} ${height - padding.bottom} Z`
+			: ''
+	);
+
+	let area3 = $derived(
+		points.length > 0 && points[0].y3 !== null
+			? `${path3} L ${points[points.length - 1].x} ${height - padding.bottom} L ${points[0].x} ${height - padding.bottom} Z`
 			: ''
 	);
 
@@ -116,8 +138,13 @@
 					<stop offset="0%" stop-color={color2} stop-opacity="0.15" />
 					<stop offset="100%" stop-color={color2} stop-opacity="0" />
 				</linearGradient>
+				<!-- Gradient Area 3 -->
+				<linearGradient id="gradient-line-3" x1="0" y1="0" x2="0" y2="1">
+					<stop offset="0%" stop-color={color3} stop-opacity="0.15" />
+					<stop offset="100%" stop-color={color3} stop-opacity="0" />
+				</linearGradient>
 			</defs>
-
+ 
 			<!-- Bottom Baseline Grid -->
 			<line
 				x1={padding.left}
@@ -127,27 +154,37 @@
 				stroke="currentColor"
 				class="grid-line"
 			/>
-
+ 
 			<!-- Area 1 (Room Revenue) -->
 			{#if area1}
 				<path d={area1} fill="url(#gradient-line-1)" />
 			{/if}
-
+ 
 			<!-- Area 2 (Extras Revenue) -->
 			{#if area2}
 				<path d={area2} fill="url(#gradient-line-2)" />
 			{/if}
 
+			<!-- Area 3 (Incidentals Revenue) -->
+			{#if area3}
+				<path d={area3} fill="url(#gradient-line-3)" />
+			{/if}
+ 
 			<!-- Line 1 -->
 			{#if path1}
 				<path d={path1} fill="none" stroke={color1} stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
 			{/if}
-
+ 
 			<!-- Line 2 -->
 			{#if path2}
 				<path d={path2} fill="none" stroke={color2} stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
 			{/if}
 
+			<!-- Line 3 -->
+			{#if path3}
+				<path d={path3} fill="none" stroke={color3} stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+			{/if}
+ 
 			<!-- Hover vertical lines and nodes -->
 			{#if tooltipPos}
 				<!-- Vertical Dotted Indicator -->
@@ -160,13 +197,18 @@
 					class="hover-indicator"
 					stroke-dasharray="3 3"
 				/>
-
+ 
 				<!-- Circle Node 1 -->
 				<circle cx={tooltipPos.x} cy={tooltipPos.y1} r="4.5" fill="white" stroke={color1} stroke-width="2" />
-
+ 
 				<!-- Circle Node 2 -->
 				{#if tooltipPos.y2 !== null}
 					<circle cx={tooltipPos.x} cy={tooltipPos.y2} r="4" fill="white" stroke={color2} stroke-width="2" />
+				{/if}
+
+				<!-- Circle Node 3 -->
+				{#if tooltipPos.y3 !== null}
+					<circle cx={tooltipPos.x} cy={tooltipPos.y3} r="4" fill="white" stroke={color3} stroke-width="2" />
 				{/if}
 			{/if}
 		</svg>
@@ -176,9 +218,9 @@
 		</div>
 	{/if}
 
-	<!-- Custom Premium Floating Tooltip -->
+	<!-- Custom Floating Tooltip -->
 	{#if tooltipPos}
-		<div class="chart-tooltip" style="left: {tooltipPos.x}px; top: {Math.min(tooltipPos.y1, tooltipPos.y2 ?? 9999) - 15}px;">
+		<div class="chart-tooltip" style="left: {tooltipPos.x}px; top: {Math.min(tooltipPos.y1, tooltipPos.y2 ?? 9999, tooltipPos.y3 ?? 9999) - 15}px;">
 			<span class="tooltip-date block">{formatDate(tooltipPos.data.date)}</span>
 			
 			<div class="flex flex-col gap-1 mt-1.5 min-w-[120px]">
@@ -189,7 +231,7 @@
 						<span>{label1}:</span>
 					</div>
 					<span class="font-extrabold text-white">
-						${tooltipPos.data.value1.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+						{#if isCurrency}${/if}{tooltipPos.data.value1.toLocaleString(undefined, isCurrency ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumFractionDigits: 0 })}
 					</span>
 				</div>
 
@@ -201,7 +243,20 @@
 							<span>{label2}:</span>
 						</div>
 						<span class="font-extrabold text-white">
-							${tooltipPos.data.value2.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+							{#if isCurrency}${/if}{tooltipPos.data.value2.toLocaleString(undefined, isCurrency ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumFractionDigits: 0 })}
+						</span>
+					</div>
+				{/if}
+
+				<!-- Value 3 -->
+				{#if tooltipPos.data.value3 !== undefined}
+					<div class="flex items-center justify-between gap-3 text-xs">
+						<div class="flex items-center gap-1.5 text-slate-400">
+							<span class="w-2 h-2 rounded-full shrink-0" style="background-color: {color3};"></span>
+							<span>{label3}:</span>
+						</div>
+						<span class="font-extrabold text-white">
+							{#if isCurrency}${/if}{tooltipPos.data.value3.toLocaleString(undefined, isCurrency ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumFractionDigits: 0 })}
 						</span>
 					</div>
 				{/if}

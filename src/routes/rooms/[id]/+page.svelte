@@ -22,7 +22,7 @@
 		defaultValues: {
 			checkIn: $page.url.searchParams.get('checkIn') || '',
 			checkOut: $page.url.searchParams.get('checkOut') || '',
-			guests: $page.url.searchParams.get('guests') || '2'
+			guests: $page.url.searchParams.get('guests') || '1'
 		}
 	});
 

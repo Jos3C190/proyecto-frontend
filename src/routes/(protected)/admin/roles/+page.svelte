@@ -15,6 +15,7 @@
 	import type { RoleRead } from '$lib/types';
 	import GenericConfirmModal from '$lib/components/ui/GenericConfirmModal.svelte';
 	import { createPersistence } from '$lib/utils/persistence';
+	import { X, Save } from 'lucide-svelte';
 	import '../adminPage.css';
 
 	const persistence = createPersistence({
@@ -317,25 +318,53 @@
 </div>
 
 {#if showCreate}
-	<div class="admin-modal-overlay" role="dialog" aria-modal="true">
-		<div class="admin-modal">
-			<h2 class="admin-modal-title">Crear rol</h2>
-			<form onsubmit={handleCreate}>
-				{#if formError}
-					<div class="admin-error mb-4">{formError}</div>
-				{/if}
-				<div class="admin-field">
-					<label for="create-role-name">Nombre</label>
-					<input id="create-role-name" type="text" bind:value={formData.name} placeholder="ej. editor" required />
+	<div class="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-28">
+		<!-- Backdrop -->
+		<div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick={closeModals}></div>
+		
+		<!-- Modal Content -->
+		<div class="relative w-full max-w-xl bg-white dark:bg-[#11151d] rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col max-h-[80vh] animate-scale-in">
+			<!-- Header -->
+			<div class="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/50">
+				<div>
+					<h2 class="text-xl font-bold text-slate-900 dark:text-white font-['Outfit']">Crear Rol</h2>
+					<p class="text-xs text-gray-500 mt-1">Configura un nuevo rol de usuario para la asignación de permisos.</p>
 				</div>
-				<div class="admin-field">
-					<label for="create-role-desc">Descripción</label>
-					<input id="create-role-desc" type="text" bind:value={formData.description} placeholder="Opcional" />
+				<button onclick={closeModals} class="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-500">
+					<X class="w-5 h-5" />
+				</button>
+			</div>
+
+			<!-- Body -->
+			<form onsubmit={handleCreate} class="flex flex-col flex-1 overflow-hidden">
+				<div class="p-6 overflow-y-auto flex-1 space-y-5">
+					{#if formError}
+						<div class="admin-error mb-4">{formError}</div>
+					{/if}
+					
+					<div class="admin-field">
+						<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5" for="create-role-name">Nombre <span class="text-red-500">*</span></label>
+						<input id="create-role-name" type="text" bind:value={formData.name} placeholder="ej. editor" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all placeholder-gray-400" required />
+					</div>
+					
+					<div class="admin-field">
+						<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5" for="create-role-desc">Descripción</label>
+						<textarea id="create-role-desc" bind:value={formData.description} placeholder="Describe el propósito del rol..." rows="3" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all resize-none placeholder-gray-400"></textarea>
+					</div>
 				</div>
-				<div class="admin-modal-actions">
-					<button type="button" class="admin-btn-secondary" onclick={closeModals}>Cancelar</button>
-					<button type="submit" class="admin-btn" disabled={formLoading}>
-						{formLoading ? 'Guardando...' : 'Crear'}
+
+				<!-- Footer -->
+				<div class="p-6 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-3 bg-gray-50/50 dark:bg-gray-900/50">
+					<button type="button" class="px-5 py-2.5 text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors" onclick={closeModals}>
+						Cancelar
+					</button>
+					<button type="submit" class="px-5 py-2.5 bg-[#D4AF37] hover:from-[#f3cd54] hover:to-[#c69a2b] text-white rounded-xl text-sm font-bold shadow-lg shadow-[#D4AF37]/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2" disabled={formLoading}>
+						{#if formLoading}
+							<div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+						{:else}
+							<Save class="w-4 h-4" />
+						{/if}
+						{formLoading ? 'Guardando...' : 'Crear Rol'}
 					</button>
 				</div>
 			</form>
@@ -344,25 +373,53 @@
 {/if}
 
 {#if editingRole}
-	<div class="admin-modal-overlay" role="dialog" aria-modal="true">
-		<div class="admin-modal">
-			<h2 class="admin-modal-title">Editar rol</h2>
-			<form onsubmit={handleUpdate}>
-				{#if formError}
-					<div class="admin-error mb-4">{formError}</div>
-				{/if}
-				<div class="admin-field">
-					<label for="edit-role-name">Nombre</label>
-					<input id="edit-role-name" type="text" bind:value={formData.name} required />
+	<div class="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-28">
+		<!-- Backdrop -->
+		<div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick={closeModals}></div>
+		
+		<!-- Modal Content -->
+		<div class="relative w-full max-w-xl bg-white dark:bg-[#11151d] rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col max-h-[80vh] animate-scale-in">
+			<!-- Header -->
+			<div class="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/50">
+				<div>
+					<h2 class="text-xl font-bold text-slate-900 dark:text-white font-['Outfit']">Editar Rol</h2>
+					<p class="text-xs text-gray-500 mt-1">Modifica el nombre y descripción del rol seleccionado.</p>
 				</div>
-				<div class="admin-field">
-					<label for="edit-role-desc">Descripción</label>
-					<input id="edit-role-desc" type="text" bind:value={formData.description} />
+				<button onclick={closeModals} class="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-500">
+					<X class="w-5 h-5" />
+				</button>
+			</div>
+
+			<!-- Body -->
+			<form onsubmit={handleUpdate} class="flex flex-col flex-1 overflow-hidden">
+				<div class="p-6 overflow-y-auto flex-1 space-y-5">
+					{#if formError}
+						<div class="admin-error mb-4">{formError}</div>
+					{/if}
+					
+					<div class="admin-field">
+						<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5" for="edit-role-name">Nombre <span class="text-red-500">*</span></label>
+						<input id="edit-role-name" type="text" bind:value={formData.name} class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all" required />
+					</div>
+					
+					<div class="admin-field">
+						<label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5" for="edit-role-desc">Descripción</label>
+						<textarea id="edit-role-desc" bind:value={formData.description} rows="3" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all resize-none"></textarea>
+					</div>
 				</div>
-				<div class="admin-modal-actions">
-					<button type="button" class="admin-btn-secondary" onclick={closeModals}>Cancelar</button>
-					<button type="submit" class="admin-btn" disabled={formLoading}>
-						{formLoading ? 'Guardando...' : 'Guardar'}
+
+				<!-- Footer -->
+				<div class="p-6 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-3 bg-gray-50/50 dark:bg-gray-900/50">
+					<button type="button" class="px-5 py-2.5 text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors" onclick={closeModals}>
+						Cancelar
+					</button>
+					<button type="submit" class="px-5 py-2.5 bg-[#D4AF37] hover:from-[#f3cd54] hover:to-[#c69a2b] text-white rounded-xl text-sm font-bold shadow-lg shadow-[#D4AF37]/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2" disabled={formLoading}>
+						{#if formLoading}
+							<div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+						{:else}
+							<Save class="w-4 h-4" />
+						{/if}
+						{formLoading ? 'Guardando...' : 'Guardar Cambios'}
 					</button>
 				</div>
 			</form>

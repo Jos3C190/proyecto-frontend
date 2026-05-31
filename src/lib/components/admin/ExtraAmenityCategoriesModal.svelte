@@ -7,6 +7,7 @@
 		deleteExtraAmenityCategory 
 	} from '$lib/services/extra_amenity.service';
 	import type { ExtraAmenityCategoryRead } from '$lib/services/extra_amenity.service';
+	import { X, Plus, Edit2, Trash2, Check, Save } from 'lucide-svelte';
 
 	let { show = $bindable(), categories = $bindable() } = $props<{
 		show: boolean;
@@ -89,80 +90,81 @@
 </script>
 
 {#if show}
-	<div class="fixed inset-0 z-[110] flex items-start justify-center p-4 pt-28">
+	<div class="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-28">
 		<!-- Backdrop -->
 		<div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick={() => show = false}></div>
 		
 		<!-- Modal Content -->
-		<div class="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl flex flex-col max-h-[80vh] animate-scale-in">
+		<div class="relative w-full max-w-xl bg-white dark:bg-[#11151d] rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col max-h-[80vh] animate-scale-in">
 			<!-- Header -->
-			<div class="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800">
+			<div class="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/50">
 				<div>
-					<h3 class="text-xl font-bold font-['Outfit'] text-slate-900 dark:text-white">Categorías de Extras</h3>
-					<p class="text-sm text-slate-500">Agrupa tus servicios adicionales.</p>
+					<h2 class="text-xl font-bold text-slate-900 dark:text-white font-['Outfit']">Categorías de Extras</h2>
+					<p class="text-xs text-gray-500 mt-1">Agrupa tus servicios adicionales con costo.</p>
 				</div>
-				<button onclick={() => show = false} class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+				<button onclick={() => show = false} class="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-500">
+					<X class="w-5 h-5" />
 				</button>
 			</div>
 
 			<!-- Create Form -->
-			<div class="p-6 bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800">
+			<div class="p-6 bg-gray-50/30 dark:bg-gray-900/30 border-b border-gray-100 dark:border-gray-800">
 				<form onsubmit={(e) => { e.preventDefault(); handleCreate(); }} class="flex gap-2">
 					<input 
 						type="text" 
 						bind:value={newName} 
-						placeholder="Nueva categoría..." 
-						class="flex-1 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-[#D4AF37]/20 focus:border-[#D4AF37] outline-none transition-all dark:text-white placeholder-slate-400"
+						placeholder="Nueva categoría (ej: Masajes, Transporte)..." 
+						class="flex-1 px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-[#D4AF37]/50 outline-none transition-all dark:text-white placeholder-gray-400"
 						disabled={saving}
 					/>
 					<button 
 						type="submit" 
 						disabled={saving || !newName.trim()} 
-						class="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-semibold rounded-xl hover:bg-slate-800 dark:hover:bg-slate-100 disabled:opacity-50 transition-colors shrink-0"
+						class="px-5 py-2.5 bg-[#D4AF37] text-white rounded-xl text-sm font-bold shadow-lg shadow-[#D4AF37]/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-1.5 shrink-0"
 					>
+						<Plus class="w-4 h-4" />
 						Añadir
 					</button>
 				</form>
 			</div>
 
 			<!-- List -->
-			<div class="p-6 overflow-y-auto">
+			<div class="p-6 overflow-y-auto flex-1">
 				{#if loading}
 					<div class="flex justify-center p-8">
 						<div class="w-8 h-8 border-4 border-[#D4AF37]/20 border-t-[#D4AF37] rounded-full animate-spin"></div>
 					</div>
 				{:else if categories.length === 0}
-					<div class="text-center p-8 text-slate-500 text-sm">
-						No hay categorías registradas.
+					<div class="text-center p-8 text-gray-500 text-sm font-medium">
+						No hay categorías registradas. ¡Añade una arriba!
 					</div>
 				{:else}
 					<div class="space-y-2">
 						{#each categories as cat}
-							<div class="flex items-center justify-between p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl group hover:border-[#D4AF37]/30 transition-colors">
+							<div class="flex items-center justify-between p-3.5 bg-white dark:bg-[#11151d] border border-gray-100 dark:border-gray-800 rounded-2xl group hover:border-[#D4AF37]/30 transition-colors">
 								{#if editingId === cat.id}
 									<form onsubmit={(e) => { e.preventDefault(); handleUpdate(cat.id); }} class="flex flex-1 items-center gap-2 mr-2">
 										<input 
 											type="text" 
 											bind:value={editName} 
-											class="flex-1 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm outline-none focus:border-[#D4AF37] dark:text-white"
+											class="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#D4AF37]/50 dark:text-white"
 											autoFocus
 										/>
-										<button type="submit" class="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-500/10 rounded-lg transition-colors">
-											<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+										<button type="submit" class="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-xl transition-colors" title="Guardar">
+											<Check class="w-4 h-4" />
 										</button>
-										<button type="button" onclick={cancelEdit} class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
-											<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+										<button type="button" onclick={cancelEdit} class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors" title="Cancelar">
+											<X class="w-4 h-4" />
 										</button>
 									</form>
 								{:else}
-									<span class="text-sm font-medium text-slate-700 dark:text-slate-200 pl-1">{cat.name}</span>
+									<span class="text-sm font-bold text-slate-700 dark:text-gray-300 pl-1">{cat.name}</span>
 									<div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-										<button onclick={() => startEdit(cat)} class="p-1.5 text-slate-400 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 rounded-lg transition-colors" title="Editar">
-											<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+										<button onclick={() => startEdit(cat)} class="p-2 text-gray-400 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 rounded-xl transition-colors" title="Editar">
+											<Edit2 class="w-4 h-4" />
 										</button>
-										<button onclick={() => handleDelete(cat.id)} class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors" title="Eliminar">
-											<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+										<button onclick={() => handleDelete(cat.id)} class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-colors" title="Eliminar">
+											<Trash2 class="w-4 h-4" />
 										</button>
 									</div>
 								{/if}
@@ -170,6 +172,13 @@
 						{/each}
 					</div>
 				{/if}
+			</div>
+
+			<!-- Footer -->
+			<div class="p-6 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end bg-gray-50/50 dark:bg-gray-900/50">
+				<button type="button" onclick={() => show = false} class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 text-sm font-bold rounded-xl transition-colors">
+					Cerrar
+				</button>
 			</div>
 		</div>
 	</div>

@@ -19,6 +19,8 @@ export interface ReservationRead {
 	balance: number;
 	extras_total: number;
 	extras_pending: number;
+	incidentals_total?: number;
+	incidentals_pending?: number;
 	status: string; // pending, confirmed, cancelled
 	created_at: string;
 	
@@ -62,6 +64,32 @@ export interface ReservationRead {
 		payment_status: string; // 'pending' | 'paid'
 		notes?: string;
 		created_at: string;
+	}>;
+	incidental_charges?: Array<{
+		id: number;
+		reservation_id: number;
+		category?: {
+			id: number;
+			name: string;
+			description?: string;
+			icon?: string;
+		};
+		description: string;
+		amount: number;
+		quantity: number;
+		total_amount: number;
+		apply_tax: boolean;
+		payment_status: 'pending' | 'paid' | 'waived';
+		waived_reason?: string;
+		evidence_url?: string;
+		notes?: string;
+		created_by_user_id: number;
+		created_by?: {
+			id: number;
+			email: string;
+		};
+		created_at: string;
+		updated_at: string;
 	}>;
 }
 

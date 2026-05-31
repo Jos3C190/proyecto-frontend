@@ -9,9 +9,10 @@
 		data: DataItem[];
 		height?: number;
 		title?: string;
+		isCurrency?: boolean;
 	}
 
-	let { data = [], height = 250, title = '' }: Props = $props();
+	let { data = [], height = 250, title = '', isCurrency = true }: Props = $props();
 
 	let activeIndex = $state<number | null>(null);
 
@@ -119,7 +120,7 @@
 						{hoveredSlice.data.label.substring(0, 12)}
 					</span>
 					<span class="text-base font-extrabold text-white mt-0.5">
-						${hoveredSlice.data.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+						{#if isCurrency}${/if}{hoveredSlice.data.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
 					</span>
 					<span class="text-[9px] font-semibold text-[#D4AF37] mt-0.5">
 						{hoveredSlice.percentage.toFixed(1)}%
@@ -129,7 +130,7 @@
 						{title || 'Total'}
 					</span>
 					<span class="text-lg font-extrabold text-[#D4AF37] mt-0.5">
-						${total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+						{#if isCurrency}${/if}{total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
 					</span>
 					<span class="text-[8px] font-medium text-slate-500">
 						{data.length} ítems
@@ -149,13 +150,13 @@
 					<div class="flex items-center gap-2">
 						<!-- Color pill -->
 						<span class="w-3 h-3 rounded-full shrink-0" style="background-color: {slice.color};"></span>
-						<span class="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[140px]">
+						<span class="text-xs font-semibold text-slate-700 dark:text-slate-350 truncate max-w-[140px]">
 							{slice.data.label}
 						</span>
 					</div>
 					<div class="text-right shrink-0">
 						<span class="text-xs font-bold text-slate-900 dark:text-white block">
-							${slice.data.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+							{#if isCurrency}${/if}{slice.data.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
 						</span>
 						<span class="text-[10px] text-slate-400 font-medium block mt-0.5">
 							{slice.percentage.toFixed(1)}%
