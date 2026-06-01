@@ -40,6 +40,18 @@
 	let activeIndex = $state<number | null>(null);
 	let tooltipPos = $derived(activeIndex !== null ? points[activeIndex] : null);
 
+	let tooltipTransform = $derived.by(() => {
+		if (!tooltipPos) return 'translate(-50%, -100%)';
+		const threshold = 80; // px (smaller tooltip)
+		if (tooltipPos.x < threshold) {
+			return 'translate(0, -100%)';
+		}
+		if (width - tooltipPos.x < threshold) {
+			return 'translate(-100%, -100%)';
+		}
+		return 'translate(-50%, -100%)';
+	});
+
 	function handleMouseMove(e: MouseEvent) {
 		if (!width) return;
 		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -102,7 +114,7 @@
 
 	<!-- Tooltip -->
 	{#if tooltipPos}
-		<div class="chart-tooltip" style="left: {tooltipPos.x}px; top: {tooltipPos.y - 10}px;">
+		<div class="chart-tooltip" style="left: {tooltipPos.x}px; top: {tooltipPos.y - 10}px; transform: {tooltipTransform};">
 			<div class="flex items-center gap-1.5">
 				<span class="tooltip-date">{formatDate(tooltipPos.data.date)}</span>
 				{#if tooltipPos.data.type === 'forecast'}
@@ -125,7 +137,7 @@
 	}
 
 	.chart-tooltip {
-		@apply pointer-events-none absolute z-10 flex -translate-x-1/2 -translate-y-full flex-col items-center gap-0.5 rounded-lg border border-slate-200 bg-white/90 px-3 py-1.5 shadow-lg backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/90;
+		@apply pointer-events-none absolute z-10 flex flex-col items-center gap-0.5 rounded-lg border border-slate-200 bg-white/90 px-3 py-1.5 shadow-lg backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/90;
 	}
 
 	.tooltip-date {

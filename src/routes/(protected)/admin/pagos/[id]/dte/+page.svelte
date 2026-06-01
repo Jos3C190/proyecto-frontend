@@ -382,7 +382,15 @@
 
 				<div class="text-center flex-1 pt-6">
 					<h1 class="font-bold text-sm">DOCUMENTO TRIBUTARIO ELECTRÓNICO</h1>
-					<h2 class="font-bold text-sm mt-1">{payment.receipt_type?.replace('_', ' ').toUpperCase() || 'FACTURA'}</h2>
+					<h2 class="font-bold text-sm mt-1">
+						{#if payment.receipt_type === 'final_consumer'}
+							CONSUMIDOR FINAL
+						{:else if payment.receipt_type === 'fiscal_credit'}
+							CRÉDITO FISCAL
+						{:else}
+							{payment.receipt_type?.replace('_', ' ').toUpperCase() || 'FACTURA'}
+						{/if}
+					</h2>
 				</div>
 
 				<div class="w-[120px] h-[120px] border border-[#000000] p-1 flex items-center justify-center">

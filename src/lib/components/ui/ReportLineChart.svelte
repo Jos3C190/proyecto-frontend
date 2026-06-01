@@ -99,6 +99,18 @@
 	let activeIndex = $state<number | null>(null);
 	let tooltipPos = $derived(activeIndex !== null && points.length > 0 ? points[activeIndex] : null);
 
+	let tooltipTransform = $derived.by(() => {
+		if (!tooltipPos) return 'translate(-50%, -100%)';
+		const threshold = 100; // px
+		if (tooltipPos.x < threshold) {
+			return 'translate(0, -100%)';
+		}
+		if (width - tooltipPos.x < threshold) {
+			return 'translate(-100%, -100%)';
+		}
+		return 'translate(-50%, -100%)';
+	});
+
 	function handleMouseMove(e: MouseEvent) {
 		if (!width || data.length === 0) return;
 		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -220,7 +232,7 @@
 
 	<!-- Custom Floating Tooltip -->
 	{#if tooltipPos}
-		<div class="chart-tooltip" style="left: {tooltipPos.x}px; top: {Math.min(tooltipPos.y1, tooltipPos.y2 ?? 9999, tooltipPos.y3 ?? 9999) - 15}px;">
+		<div class="chart-tooltip" style="left: {tooltipPos.x}px; top: {Math.min(tooltipPos.y1, tooltipPos.y2 ?? 9999, tooltipPos.y3 ?? 9999) - 15}px; transform: {tooltipTransform};">
 			<span class="tooltip-date block">{formatDate(tooltipPos.data.date)}</span>
 			
 			<div class="flex flex-col gap-1 mt-1.5 min-w-[120px]">
@@ -280,7 +292,7 @@
 	}
 
 	.chart-tooltip {
-		@apply pointer-events-none absolute z-10 flex -translate-x-1/2 -translate-y-full flex-col items-start rounded-xl border border-slate-200 bg-white/90 px-3 py-2 shadow-xl backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/90;
+		@apply pointer-events-none absolute z-10 flex flex-col items-start rounded-xl border border-slate-200 bg-white/90 px-3 py-2 shadow-xl backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/90;
 		box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
 	}
 

@@ -12,8 +12,9 @@
 	} from '$lib/services/reservation.service';
 	import { fetchExtraAmenities, type ExtraAmenityRead } from '$lib/services/extra_amenity.service';
 	import { searchRooms } from '$lib/services/room.service';
-    import { fetchUsers, updateUser } from '$lib/services/admin.service';
+	import { fetchUsers, updateUser } from '$lib/services/admin.service';
 	import FiscalDataForm from '$lib/components/ui/FiscalDataForm.svelte';
+	import AmenityIcon from '$lib/components/ui/AmenityIcon.svelte';
 	import type { ReservationRead, AdminReservationCreate, AdminPaymentCreate } from '$lib/types/reservation';
 	import type { RoomSearchResponse } from '$lib/types/room';
 	import { toast } from '$lib/stores/toast.svelte';
@@ -408,10 +409,12 @@
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-20">
                                     {#each availableRooms as res}
                                         {@const isSelected = formData.room_id == res.room.id.toString()}
-                                        <button 
-                                            type="button" 
-                                            class="group relative flex flex-col overflow-hidden rounded-[28px] border-2 transition-all duration-300 text-left bg-white dark:bg-slate-900 shadow-sm hover:shadow-xl {isSelected ? 'border-[#D4AF37] ring-4 ring-[#D4AF37]/10' : 'border-slate-100 dark:border-slate-800 hover:border-[#D4AF37]/30'}"
+                                        <div 
+                                            role="button" 
+                                            tabindex="0"
+                                            class="group relative flex flex-col overflow-hidden rounded-[28px] border-2 transition-all duration-300 text-left bg-white dark:bg-slate-900 shadow-sm hover:shadow-xl cursor-pointer {isSelected ? 'border-[#D4AF37] ring-4 ring-[#D4AF37]/10' : 'border-slate-100 dark:border-slate-800 hover:border-[#D4AF37]/30'}"
                                             onclick={() => formData.room_id = res.room.id.toString()}
+                                            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { formData.room_id = res.room.id.toString(); e.preventDefault(); } }}
                                         >
                                             <div class="aspect-[16/9] w-full overflow-hidden relative bg-slate-100 dark:bg-slate-800">
                                                 {#if res.room.cover_image_url}
@@ -425,6 +428,18 @@
                                                 <div class="absolute top-4 left-4 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/20">
                                                     <span class="text-white text-[11px] font-black uppercase tracking-tight">Suite {res.room.number}</span>
                                                 </div>
+
+                                                <!-- Detalle Habitación Button (Admin Detail View) -->
+                                                <a 
+                                                    href="/admin/habitaciones/{res.room.id}/detalle" 
+                                                    target="_blank" 
+                                                    class="absolute top-4 right-4 w-8 h-8 rounded-xl bg-black/60 hover:bg-[#D4AF37] text-white hover:text-slate-950 flex items-center justify-center border border-white/20 hover:border-transparent transition-all shadow-lg hover:scale-105 z-10"
+                                                    title="Ver Ficha de la Habitación"
+                                                    onclick={(e) => e.stopPropagation()}
+                                                >
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                                </a>
+
                                                 {#if isSelected}
                                                     <div class="absolute inset-0 bg-[#D4AF37]/20 backdrop-blur-[2px] flex items-center justify-center fade-in">
                                                         <div class="w-12 h-12 rounded-full bg-white text-[#D4AF37] flex items-center justify-center shadow-2xl scale-110 animate-bounce-short">
@@ -458,7 +473,7 @@
                                                     <span class="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-lg">Disponible</span>
                                                 </div>
                                             </div>
-                                        </button>
+                                        </div>
                                     {/each}
                                 </div>
                             {/if}
@@ -575,6 +590,8 @@
                                                 <div class="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-2xl overflow-hidden shrink-0">
                                                     {#if extra.image_url}
                                                         <img src={extra.image_url} alt={extra.name} class="w-full h-full object-cover" />
+                                                    {:else if extra.icon && !extra.icon.includes('⭐') && !extra.icon.match(/[\p{Emoji_Presentation}\p{Emoji_Modifier_Base}]/u)}
+                                                        <AmenityIcon name={extra.icon} size={24} class="text-[#D4AF37]" />
                                                     {:else}
                                                         <span>{extra.icon || '⭐'}</span>
                                                     {/if}
@@ -669,7 +686,13 @@
                                 {#each pendingCreatedReservation.extras as extraItem}
                                     <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-950/40 rounded-xl border border-slate-100 dark:border-slate-800">
                                         <div class="flex items-center gap-2.5 text-left">
-                                            <span class="text-lg">{extraItem.extra_amenity.icon || '⭐'}</span>
+                                            {#if extraItem.extra_amenity.icon && !extraItem.extra_amenity.icon.includes('⭐') && !extraItem.extra_amenity.icon.match(/[\p{Emoji_Presentation}\p{Emoji_Modifier_Base}]/u)}
+                                                <div class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-950 flex items-center justify-center shrink-0">
+                                                    <AmenityIcon name={extraItem.extra_amenity.icon} size={16} class="text-[#D4AF37]" />
+                                                </div>
+                                            {:else}
+                                                <span class="text-lg w-8 h-8 flex items-center justify-center shrink-0">{extraItem.extra_amenity.icon || '⭐'}</span>
+                                            {/if}
                                             <div>
                                                 <p class="text-xs font-bold text-slate-800 dark:text-slate-200 line-clamp-1">{extraItem.extra_amenity.name}</p>
                                                 <p class="text-[9px] text-slate-500 font-bold uppercase tracking-tight">{extraItem.quantity} x ${extraItem.unit_price} = <span class="text-[#D4AF37] font-black">${extraItem.total_price}</span></p>
