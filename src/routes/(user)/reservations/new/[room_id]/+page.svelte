@@ -168,65 +168,81 @@
 				</h2>
 				<p class="text-slate-500 dark:text-slate-400 font-medium tracking-wide">A unos pasos de su experiencia de lujo.</p>
 			</div>
-
 			<div class="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
 				
-				<!-- Detalles de la Habitación (Izquierda) -->
-				<div class="lg:col-span-2 rounded-2xl border border-[#D4AF37]/20 bg-gradient-to-br from-slate-50 to-white backdrop-blur-xl p-8 shadow-xl dark:from-slate-800/80 dark:to-slate-900/80 relative overflow-hidden">
-					<div class="absolute -top-10 -right-10 w-32 h-32 bg-[#D4AF37]/10 rounded-full blur-2xl"></div>
-					<h3 class="font-['Outfit'] text-sm tracking-widest uppercase font-semibold text-slate-500 dark:text-[#D4AF37] mb-6 relative z-10 border-b border-slate-200/50 dark:border-slate-700/50 pb-4">
-						Resumen de Estancia
-					</h3>
-					
-					<div class="relative z-10 mb-6">
-						<h4 class="text-2xl font-light font-['Outfit'] text-slate-800 dark:text-white mb-1">{room.type} Suite</h4>
-						<p class="text-sm text-slate-500 dark:text-slate-400">Habitación No. {room.number}</p>
-					</div>
-					
-					<div class="space-y-4 relative z-10">
-						<div class="flex justify-between items-center bg-white/50 dark:bg-black/20 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
-							<span class="text-sm text-slate-500 dark:text-slate-400 font-medium">Noches</span>
-							<span class="text-slate-800 dark:text-slate-200 font-bold">{numNights}</span>
+				<!-- Detalles de la Habitación (Izquierda - Sticky) -->
+				<div class="lg:col-span-2 lg:sticky lg:top-24 self-start space-y-6">
+					<div class="rounded-2xl border border-[#D4AF37]/20 bg-gradient-to-br from-slate-50 to-white backdrop-blur-xl p-8 shadow-xl dark:from-slate-800/80 dark:to-slate-900/80 relative overflow-hidden">
+						<div class="absolute -top-10 -right-10 w-32 h-32 bg-[#D4AF37]/10 rounded-full blur-2xl"></div>
+						<h3 class="font-['Outfit'] text-sm tracking-widest uppercase font-semibold text-slate-500 dark:text-[#D4AF37] mb-6 relative z-10 border-b border-slate-200/50 dark:border-slate-700/50 pb-4">
+							Resumen de Estancia
+						</h3>
+						
+						<div class="relative z-10 mb-6">
+							<h4 class="text-2xl font-light font-['Outfit'] text-slate-800 dark:text-white mb-1">{room.type} Suite</h4>
+							<p class="text-sm text-slate-500 dark:text-slate-400">Habitación No. {room.number}</p>
 						</div>
 						
-						<div class="p-4 rounded-xl border border-dashed border-[#D4AF37]/30 bg-[#D4AF37]/5 space-y-3">
-							<div class="flex justify-between items-center text-sm">
-								<span class="text-slate-500 dark:text-slate-400">Subtotal {numNights > 0 ? `(${numNights} n.)` : ''}</span>
-								<span class="text-slate-800 dark:text-slate-200 font-semibold">${subtotal.toFixed(2)}</span>
+						<div class="space-y-4 relative z-10">
+							<div class="flex justify-between items-center bg-white/50 dark:bg-black/20 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+								<span class="text-sm text-slate-500 dark:text-slate-400 font-medium">Noches</span>
+								<span class="text-slate-800 dark:text-slate-200 font-bold">{numNights}</span>
 							</div>
-							<div class="flex justify-between items-center text-sm">
-								<span class="text-slate-500 dark:text-slate-400">IVA ({(ivaRate * 100).toFixed(0)}%)</span>
-								<span class="text-slate-800 dark:text-slate-200 font-semibold">${iva.toFixed(2)}</span>
-							</div>
-							<div class="flex justify-between items-center text-sm">
-								<span class="text-slate-500 dark:text-slate-400">Turismo ({(tourismRate * 100).toFixed(0)}%)</span>
-								<span class="text-slate-800 dark:text-slate-200 font-semibold">${tourism.toFixed(2)}</span>
-							</div>
-							<div class="pt-2 border-t border-[#D4AF37]/20 flex justify-between items-center">
-								<span class="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Subtotal Habitación</span>
-								<span class="text-base font-['Outfit'] text-[#D4AF37] font-bold">${roomTotal.toFixed(2)}</span>
-							</div>
-							{#if extrasTotal > 0}
-								<div class="flex justify-between items-center text-sm pb-2 border-b border-dashed border-slate-200 dark:border-slate-700">
-									<span class="text-slate-500 dark:text-slate-400">Servicios Extras</span>
-									<span class="text-slate-800 dark:text-slate-200">${extrasTotal.toFixed(2)}</span>
+							
+							<div class="p-4 rounded-xl border border-dashed border-[#D4AF37]/30 bg-[#D4AF37]/5 space-y-3">
+								<div class="flex justify-between items-center text-sm">
+									<span class="text-slate-500 dark:text-slate-400">Subtotal {numNights > 0 ? `(${numNights} n.)` : ''}</span>
+									<span class="text-slate-800 dark:text-slate-200 font-semibold">${subtotal.toFixed(2)}</span>
 								</div>
-								<div class="flex justify-between items-center text-sm pb-2 border-b border-dashed border-slate-200 dark:border-slate-700">
-									<span class="text-slate-500 dark:text-slate-400">IVA Servicios Extras ({(ivaRate * 100).toFixed(0)}%)</span>
-									<span class="text-slate-800 dark:text-slate-200">${extrasIva.toFixed(2)}</span>
+								<div class="flex justify-between items-center text-sm">
+									<span class="text-slate-500 dark:text-slate-400">IVA ({(ivaRate * 100).toFixed(0)}%)</span>
+									<span class="text-slate-800 dark:text-slate-200 font-semibold">${iva.toFixed(2)}</span>
 								</div>
-							{/if}
-							<div class="pt-2 border-t border-[#D4AF37]/20 flex justify-between items-center">
-								<span class="text-base font-bold text-slate-800 dark:text-white uppercase tracking-wider">Total</span>
-								<span class="text-2xl font-['Outfit'] text-[#D4AF37] font-bold">${total.toFixed(2)}</span>
+								<div class="flex justify-between items-center text-sm">
+									<span class="text-slate-500 dark:text-slate-400">Turismo ({(tourismRate * 100).toFixed(0)}%)</span>
+									<span class="text-slate-800 dark:text-slate-200 font-semibold">${tourism.toFixed(2)}</span>
+								</div>
+								<div class="pt-2 border-t border-[#D4AF37]/20 flex justify-between items-center">
+									<span class="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Subtotal Habitación</span>
+									<span class="text-base font-['Outfit'] text-[#D4AF37] font-bold">${roomTotal.toFixed(2)}</span>
+								</div>
+								{#if extrasTotal > 0}
+									<div class="flex justify-between items-center text-sm pb-2 border-b border-dashed border-slate-200 dark:border-slate-700">
+										<span class="text-slate-500 dark:text-slate-400">Servicios Extras</span>
+										<span class="text-slate-800 dark:text-slate-200">${extrasTotal.toFixed(2)}</span>
+									</div>
+									<div class="flex justify-between items-center text-sm pb-2 border-b border-dashed border-slate-200 dark:border-slate-700">
+										<span class="text-slate-500 dark:text-slate-400">IVA Servicios Extras ({(ivaRate * 100).toFixed(0)}%)</span>
+										<span class="text-slate-800 dark:text-slate-200">${extrasIva.toFixed(2)}</span>
+									</div>
+								{/if}
+								<div class="pt-2 border-t border-[#D4AF37]/20 flex justify-between items-center">
+									<span class="text-base font-bold text-slate-800 dark:text-white uppercase tracking-wider">Total</span>
+									<span class="text-2xl font-['Outfit'] text-[#D4AF37] font-bold">${total.toFixed(2)}</span>
+								</div>
 							</div>
-						</div>
 
-						{#if numNights > 0}
-							<p class="text-[10px] text-center text-slate-400 uppercase tracking-widest mt-4">
-								* Tarifas dinámicas aplicadas según temporada
-							</p>
-						{/if}
+							{#if numNights > 0}
+								<p class="text-[10px] text-center text-slate-400 uppercase tracking-widest mt-4">
+									* Tarifas dinámicas aplicadas según temporada
+								</p>
+							{/if}
+						</div>
+					</div>
+
+					<!-- Botones de Acción (Debajo de la card) -->
+					<div class="flex flex-col sm:flex-row lg:flex-col gap-4">
+						<a href="/rooms/{roomId}" class="px-6 py-3 rounded-xl border border-slate-300 bg-white/50 backdrop-blur-sm text-sm font-bold uppercase tracking-widest text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white text-center flex-1">
+							Volver
+						</a>
+						<button form="reservation-form" type="submit" disabled={submitLoading || numNights <= 0} class="px-8 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA8222] text-sm font-bold uppercase tracking-widest text-slate-900 transition-all hover:from-[#f3cd54] hover:to-[#c69a2b] shadow-lg shadow-[#D4AF37]/20 disabled:opacity-50 disabled:cursor-not-allowed flex-1 flex items-center justify-center gap-2">
+							{#if submitLoading}
+								<span class="inline-block w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></span>
+								Procesando
+							{:else}
+								Confirmar Reservación &rarr;
+							{/if}
+						</button>
 					</div>
 				</div>
 
@@ -238,7 +254,7 @@
 						</div>
 					{/if}
 
-					<form class="space-y-6" onsubmit={(e) => { e.preventDefault(); handleSubmit(e); }}>
+					<form id="reservation-form" class="space-y-6" onsubmit={(e) => { e.preventDefault(); handleSubmit(e); }}>
 						<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 							<div class="space-y-2">
 								<label for="check_in" class="block text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Check-In</label>
@@ -312,20 +328,6 @@
 								</div>
 							</div>
 						{/if}
-
-						<div class="pt-6 border-t border-slate-200/50 dark:border-slate-700/50 flex justify-end gap-4">
-							<a href="/rooms/{roomId}" class="px-6 py-3 rounded-xl border border-slate-300 bg-transparent text-sm font-bold uppercase tracking-widest text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white text-center">
-								Volver
-							</a>
-							<button type="submit" disabled={submitLoading || numNights <= 0} class="px-8 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#AA8222] text-sm font-bold uppercase tracking-widest text-slate-900 transition-all hover:from-[#f3cd54] hover:to-[#c69a2b] shadow-lg shadow-[#D4AF37]/20 disabled:opacity-50 disabled:cursor-not-allowed">
-								{#if submitLoading}
-									<span class="inline-block w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mr-2 align-middle"></span>
-									Procesando
-{:else}
-									Confirmar Reservación &rarr;
-								{/if}
-							</button>
-						</div>
 					</form>
 				</div>
 			</div>
