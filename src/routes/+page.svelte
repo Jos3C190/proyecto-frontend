@@ -12,15 +12,6 @@
 	import { fade, slide } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	
-	let expandedRoomVideoId = $state<number | string | null>(null);
-
-	const suiteVideos = [
-		"/videos/habitacion1-video.mp4",
-		"https://players.brightcove.net/13596767001/default_default/index.mp4?videoId=5989745136001",
-		"https://videos.pexels.com/video-files/3133674/3133674-uhd_2560_1440_30fps.mp4"
-	];
-
-	
 	let featuredRooms = $state<RoomRead[]>([]);
 	let settingsState = $state<any>(null);
 	let loading = $state(true);
@@ -304,45 +295,35 @@ v>
 				<div class="flex justify-center py-20"><div class="spinner"></div></div>
 			{:else if featuredRooms.length > 0}
 				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 xl:gap-12 reveal">
-					{#each featuredRooms.slice(0, 3).filter(r => expandedRoomVideoId === null || expandedRoomVideoId === r.id) as room (room.id)}
+					{#each featuredRooms.slice(0, 3) as room (room.id)}
 							<div 
 								animate:flip={{ duration: 700, easing: cubicOut }}
-								out:fade={{ duration: 300 }}
-								class="group relative overflow-hidden bg-white dark:bg-[#0B0E14] border border-slate-100 dark:border-slate-800/80 shadow-lg hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.5)] hover:border-[#D4AF37]/50 transition-all duration-700 flex flex-col {expandedRoomVideoId === room.id ? 'lg:col-span-3 rounded-[3rem] lg:flex-row h-[#70vh]' : 'rounded-[2.5rem] hover:-translate-y-3'}"
+								class="group relative overflow-hidden bg-white dark:bg-[#0B0E14] border border-slate-100 dark:border-slate-800/80 shadow-lg hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.5)] hover:border-[#D4AF37]/50 transition-all duration-700 flex flex-col rounded-[2.5rem] hover:-translate-y-3"
 							>
-								<div class="relative {expandedRoomVideoId === room.id ? 'w-full lg:w-2/3 h-full order-1 lg:order-2' : 'h-72 md:h-80 w-full'} overflow-hidden">
-									{#if expandedRoomVideoId === room.id}
-										<video src={suiteVideos[featuredRooms.findIndex(r => r.id === room.id) % suiteVideos.length]} autoplay loop muted controls playsinline class="w-full h-full object-cover animate-fade-in"></video>
-										<button onclick={() => expandedRoomVideoId = null} class="absolute top-6 right-6 lg:top-8 lg:right-8 z-30 bg-black/40 text-white rounded-full p-3 hover:bg-black hover:scale-110 transition-all duration-300 backdrop-blur-md border border-white/20 shadow-2xl">
-											<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-										</button>
+								<div class="relative h-72 md:h-80 w-full overflow-hidden">
+									{#if room.cover_image_url}
+										<img src={room.cover_image_url} alt="{room.type}" class="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110" />
+									{:else if room.images && room.images.length > 0}
+										<img src={room.images[0].url} alt="{room.type}" class="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110" />
 									{:else}
-										{#if room.cover_image_url}
-											<img src={room.cover_image_url} alt="{room.type}" class="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110" />
-										{:else if room.images && room.images.length > 0}
-											<img src={room.images[0].url} alt="{room.type}" class="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110" />
-										{:else}
-											<img src="https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Suite de Lujo" class="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110" />
-										{/if}
-										
-										<!-- Hover Overlay -->
-										<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-center justify-center backdrop-blur-sm z-10 pointer-events-none">
-											<a href="/rooms/{room.id}" class="pointer-events-auto px-8 py-3 rounded-full bg-white/10 border border-white/50 text-white font-medium tracking-wide backdrop-blur-md hover:bg-white hover:text-black hover:border-white transition-all duration-300 transform translate-y-4 group-hover:translate-y-0">
-												Explorar Suite
-											</a>
-										</div>
+										<img src="https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Suite de Lujo" class="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110" />
 									{/if}
 									
-									<!-- Price Tag Floating on Image (Hidden when playing video) -->
-									{#if expandedRoomVideoId !== room.id}
-										<div class="absolute bottom-4 left-4 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl px-4 py-2 rounded-2xl text-slate-900 dark:text-white shadow-xl border border-slate-200 dark:border-slate-700">
-											<span class="font-['Outfit'] font-bold text-xl">${getTodayPrice(room).toFixed(2)}</span>
-											<span class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">/noche</span>
-										</div>
-									{/if}
+									<!-- Hover Overlay -->
+									<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-center justify-center backdrop-blur-sm z-10 pointer-events-none">
+										<a href="/rooms/{room.id}" class="pointer-events-auto px-8 py-3 rounded-full bg-white/10 border border-white/50 text-white font-medium tracking-wide backdrop-blur-md hover:bg-white hover:text-black hover:border-white transition-all duration-300 transform translate-y-4 group-hover:translate-y-0">
+											Explorar Suite
+										</a>
+									</div>
+									
+									<!-- Price Tag Floating on Image -->
+									<div class="absolute bottom-4 left-4 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl px-4 py-2 rounded-2xl text-slate-900 dark:text-white shadow-xl border border-slate-200 dark:border-slate-700">
+										<span class="font-['Outfit'] font-bold text-xl">${getTodayPrice(room).toFixed(2)}</span>
+										<span class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">/noche</span>
+									</div>
 								</div>
 								
-								<div class="flex-1 flex flex-col {expandedRoomVideoId === room.id ? 'w-full lg:w-1/3 h-full justify-center p-12 lg:p-16 order-2 lg:order-1 border-r border-[#D4AF37]/20 relative bg-gradient-to-br from-white/95 to-slate-50/90 dark:from-[#0B0E14]/95 dark:to-[#0f131a]/95' : 'p-8'}">
+								<div class="flex-1 flex flex-col p-8">
 									<div class="flex items-start justify-between mb-4">
 										<div>
 											<div class="text-[#D4AF37] text-xs font-bold uppercase tracking-[0.25em] mb-2">{room.type} Suite</div>
@@ -350,7 +331,7 @@ v>
 										</div>
 									</div>
 									
-									<p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-8 flex-1 {expandedRoomVideoId === room.id ? 'lg:text-base' : 'line-clamp-3'}">
+									<p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-8 flex-1 line-clamp-3">
 										{room.description || 'Experimenta la opulencia y el confort inigualable en un espacio sumamente privado y diseñado meticulosamente.'}
 									</p>
 									
@@ -366,19 +347,7 @@ v>
 											</span>
 										</div>
 										<div class="flex items-center gap-1">
-											{#if expandedRoomVideoId !== room.id}
-												<!-- Play Video Button -->
-												<button onclick={() => expandedRoomVideoId = room.id} title="Ver Video Inmersivo" class="text-slate-400 hover:text-[#D4AF37] transition-all p-2 rounded-full hover:bg-[#D4AF37]/10 flex items-center justify-center hover:scale-110">
-													<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" stroke="currentColor" stroke-width="0.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-												</button>
-											{:else}
-												<!-- Reemplaza PriceTag en estado expandido -->
-												<div class="bg-[#D4AF37] text-[#0f131a] px-4 py-2 rounded-full font-bold text-lg font-['Outfit'] shadow-[0_0_15px_rgba(212,175,55,0.4)]">
-													${getTodayPrice(room).toFixed(2)}<span class="text-xs font-medium ml-1">/noche</span>
-												</div>
-											{/if}
-											
-											<!-- Link Dettales Arrow -->
+											<!-- Link Detalles Arrow -->
 											<a href="/rooms/{room.id}" title="Ver Detalles" class="text-slate-400 hover:text-[#D4AF37] transition-all p-2 rounded-full hover:bg-[#D4AF37]/10 flex items-center justify-center hover:scale-110">
 												<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 transform -rotate-45" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
 											</a>
