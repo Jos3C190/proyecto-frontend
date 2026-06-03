@@ -429,21 +429,34 @@
 						<!-- KPIs Principales -->
 						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
 							<!-- Card 1: Ingresos Totales -->
-							<div class="admin-kpi-card group">
+							<div class="admin-kpi-card group !overflow-visible">
 								<div class="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-colors"></div>
 								<div class="flex items-center justify-between mb-4">
 									<div class="p-2.5 bg-emerald-500/10 rounded-2xl text-emerald-500">
 										<DollarSign class="w-5 h-5" />
 									</div>
-									<span class="flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-full {summaryData.revenue_growth_pct >= 0 ? 'text-emerald-500 bg-emerald-500/10' : 'text-red-500 bg-red-500/10'}">
-										{#if summaryData.revenue_growth_pct >= 0}
-											<ArrowUpRight class="w-3 h-3" />
-											+{summaryData.revenue_growth_pct}%
-										{:else}
-											<ArrowDownRight class="w-3 h-3" />
-											{summaryData.revenue_growth_pct}%
+									<div class="flex items-center gap-1.5 font-sans relative !overflow-visible">
+										<span class="flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-full {summaryData.revenue_growth_pct >= 0 ? 'text-emerald-500 bg-emerald-500/10' : 'text-red-500 bg-red-500/10'}">
+											{#if summaryData.revenue_growth_pct >= 0}
+												<ArrowUpRight class="w-3 h-3" />
+												+{summaryData.revenue_growth_pct}%
+											{:else}
+												<ArrowDownRight class="w-3 h-3" />
+												{summaryData.revenue_growth_pct}%
+											{/if}
+											<button type="button" class="cursor-pointer ml-1 text-slate-400 hover:text-emerald-500 transition-colors p-0.5 focus:outline-none" 
+												onclick={(e) => { e.stopPropagation(); activeTooltip = activeTooltip === 'summary_revenue' ? null : 'summary_revenue'; }}>
+												<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="inline"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+											</button>
+										</span>
+										{#if activeTooltip === 'summary_revenue'}
+											<div class="absolute bottom-full right-0 mb-2 w-52 p-3 bg-slate-900 dark:bg-slate-800 text-[10px] leading-relaxed text-slate-200 dark:text-white rounded-xl shadow-xl border border-slate-700/50 z-50 text-center font-medium" transition:fade>
+												<p class="font-bold text-emerald-400 mb-1">Ingresos Totales</p>
+												<p>Suma total del dinero percibido y cobrado en caja durante el periodo. Incluye los ingresos por <span class="text-white font-bold">Habitaciones</span>, <span class="text-white font-bold">Servicios Extras</span>, e <span class="text-white font-bold">Incidentales</span> con sus respectivos impuestos.</p>
+												<div class="absolute top-full right-6 -mt-1 border-4 border-transparent border-t-slate-900 dark:border-t-slate-800"></div>
+											</div>
 										{/if}
-									</span>
+									</div>
 								</div>
 								<h3 class="text-[10px] font-bold text-slate-500 dark:text-gray-500 uppercase tracking-widest mb-1">Ingresos Totales</h3>
 								<p class="text-2xl font-black text-slate-900 dark:text-white font-['Outfit']">
@@ -452,15 +465,28 @@
 							</div>
 
 							<!-- Card 2: Ocupación Media -->
-							<div class="admin-kpi-card group">
+							<div class="admin-kpi-card group !overflow-visible">
 								<div class="absolute -right-4 -top-4 w-24 h-24 bg-[#D4AF37]/5 rounded-full blur-2xl group-hover:bg-[#D4AF37]/10 transition-colors"></div>
 								<div class="flex items-center justify-between mb-4">
 									<div class="p-2.5 bg-[#D4AF37]/10 rounded-2xl text-[#D4AF37]">
 										<BedDouble class="w-5 h-5" />
 									</div>
-									<span class="text-[10px] font-extrabold text-[#D4AF37] bg-[#D4AF37]/10 px-2.5 py-1 rounded-full">
-										Ocupación
-									</span>
+									<div class="flex items-center gap-1.5 font-sans relative !overflow-visible">
+										<span class="text-[10px] font-extrabold text-[#D4AF37] bg-[#D4AF37]/10 px-2.5 py-1 rounded-full flex items-center gap-1">
+											Ocupación
+											<button type="button" class="cursor-pointer text-[#D4AF37]/80 hover:text-[#D4AF37] transition-colors p-0.5 focus:outline-none" 
+												onclick={(e) => { e.stopPropagation(); activeTooltip = activeTooltip === 'summary_occ' ? null : 'summary_occ'; }}>
+												<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="inline"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+											</button>
+										</span>
+										{#if activeTooltip === 'summary_occ'}
+											<div class="absolute bottom-full right-0 mb-2 w-52 p-3 bg-slate-900 dark:bg-slate-800 text-[10px] leading-relaxed text-slate-200 dark:text-white rounded-xl shadow-xl border border-slate-700/50 z-50 text-center font-medium" transition:fade>
+												<p class="font-bold text-[#D4AF37] mb-1">Ocupación Media</p>
+												<p>Porcentaje promedio de habitaciones ocupadas. Se calcula dividiendo las <span class="text-white font-bold">Noches Vendidas</span> entre la capacidad total disponible (<span class="text-white font-bold">Habitaciones Activas × Días del Periodo</span>), multiplicado por 100.</p>
+												<div class="absolute top-full right-6 -mt-1 border-4 border-transparent border-t-slate-900 dark:border-t-slate-800"></div>
+											</div>
+										{/if}
+									</div>
 								</div>
 								<h3 class="text-[10px] font-bold text-slate-500 dark:text-gray-500 uppercase tracking-widest mb-1">Ocupación Media</h3>
 								<p class="text-2xl font-black text-slate-900 dark:text-white font-['Outfit']">{summaryData.occupancy_rate}%</p>
@@ -500,15 +526,28 @@
 							</div>
 
 							<!-- Card 4: Tasa de Cancelación -->
-							<div class="admin-kpi-card group">
+							<div class="admin-kpi-card group !overflow-visible">
 								<div class="absolute -right-4 -top-4 w-24 h-24 bg-red-500/5 rounded-full blur-2xl group-hover:bg-red-500/10 transition-colors"></div>
 								<div class="flex items-center justify-between mb-4">
 									<div class="p-2.5 bg-red-500/10 rounded-2xl text-red-500">
 										<AlertCircle class="w-5 h-5" />
 									</div>
-									<span class="text-[10px] font-extrabold {summaryData.cancellation_rate > 10 ? 'text-red-400 bg-red-500/10' : 'text-emerald-400 bg-emerald-500/10'} px-2.5 py-1 rounded-full">
-										{summaryData.cancellation_rate > 10 ? 'Revisar' : 'Saludable'}
-									</span>
+									<div class="flex items-center gap-1.5 font-sans relative !overflow-visible">
+										<span class="text-[10px] font-extrabold {summaryData.cancellation_rate > 10 ? 'text-red-400 bg-red-500/10' : 'text-emerald-400 bg-emerald-500/10'} px-2.5 py-1 rounded-full flex items-center gap-1">
+											{summaryData.cancellation_rate > 10 ? 'Revisar' : 'Saludable'}
+											<button type="button" class="cursor-pointer text-slate-400 hover:text-red-400 transition-colors p-0.5 focus:outline-none" 
+												onclick={(e) => { e.stopPropagation(); activeTooltip = activeTooltip === 'summary_cancellation' ? null : 'summary_cancellation'; }}>
+												<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="inline"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+											</button>
+										</span>
+										{#if activeTooltip === 'summary_cancellation'}
+											<div class="absolute bottom-full right-0 mb-2 w-52 p-3 bg-slate-900 dark:bg-slate-800 text-[10px] leading-relaxed text-slate-200 dark:text-white rounded-xl shadow-xl border border-slate-700/50 z-50 text-center font-medium" transition:fade>
+												<p class="font-bold text-red-400 mb-1">Tasa de Cancelación</p>
+												<p>Porcentaje de reservaciones que fueron canceladas en el periodo. Se obtiene dividiendo las <span class="text-white font-bold">Reservas Canceladas</span> entre el <span class="text-white font-bold">Total de Reservas</span> (activas + canceladas), multiplicado por 100.</p>
+												<div class="absolute top-full right-6 -mt-1 border-4 border-transparent border-t-slate-900 dark:border-t-slate-800"></div>
+											</div>
+										{/if}
+									</div>
 								</div>
 								<h3 class="text-[10px] font-bold text-slate-500 dark:text-gray-500 uppercase tracking-widest mb-1">Tasa de Cancelación</h3>
 								<p class="text-2xl font-black text-slate-900 dark:text-white font-['Outfit']">{summaryData.cancellation_rate}%</p>

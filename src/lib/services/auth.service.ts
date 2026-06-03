@@ -122,7 +122,7 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
 	const email = data.email.trim();
 	const password = data.password;
 
-	const registerRes = await fetch(`${API_BASE}/users/register`, {
+	const registerRes = await fetch(`${API_BASE}/auth/register`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ first_name, last_name, email, password })

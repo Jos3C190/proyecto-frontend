@@ -17,11 +17,21 @@
 	let firstNameError = $state<string | null>(null);
 	let lastNameError = $state<string | null>(null);
 
+	function validatePasswordComplexity(val: string): string | null {
+		if (!val) return 'La contraseña es obligatoria';
+		if (val.length < 10) return 'La contraseña debe tener al menos 10 caracteres';
+		if (!/[A-Z]/.test(val)) return 'Debe contener al menos una letra mayúscula';
+		if (!/[a-z]/.test(val)) return 'Debe contener al menos una letra minúscula';
+		if (!/\d/.test(val)) return 'Debe contener al menos un número';
+		if (!/[!@#$%^&*(),.?":{}|<>]/.test(val)) return 'Debe contener al menos un carácter especial (ej. !, @, #, $, %)';
+		return null;
+	}
+
 	function validate(): boolean {
 		firstNameError = firstName.trim().length === 0 ? 'Requerido' : null;
 		lastNameError = lastName.trim().length === 0 ? 'Requerido' : null;
 		emailError = validateEmail(email);
-		passwordError = validatePassword(password, 8);
+		passwordError = validatePasswordComplexity(password);
 		confirmError = password !== passwordConfirm ? 'Las contraseñas no coinciden' : null;
 		
 		return !emailError && !passwordError && !confirmError && !firstNameError && !lastNameError;
