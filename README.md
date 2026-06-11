@@ -75,34 +75,69 @@ El sistema ha sido estructurado siguiendo estrictamente las regulaciones y forma
 
 ---
 
-## 🚀 Configuración e Instalación Local
+## 🚀 Configuración e Instalación
 
-### Requisitos Previos
-*   [Node.js](https://nodejs.org/) (versión 18 o superior recomendada).
-*   Un gestor de paquetes como `npm` (incluido con Node).
+Tienes tres opciones para ejecutar el portal frontend según tu rol y las necesidades de desarrollo:
 
-### 1. Clonar el repositorio e ingresar a la carpeta
-```sh
-cd ProyectoAFE/proyecto-frontend
-```
+---
 
-### 2. Instalar Dependencias
-```sh
-npm install
-```
+### Opción A: Entorno Completo con Docker (Recomendado para Full-Stack)
+Si deseas levantar la base de datos SQL Server, el backend y el frontend de forma integrada y local:
 
-### 3. Configurar el Archivo de Entorno (`.env`)
-Crea un archivo llamado `.env` en la raíz de la carpeta `proyecto-frontend` (si no existe ya) y define la URL del servidor Backend FastAPI:
-```env
-# URL base de la API de FastAPI
-VITE_API_URL=http://localhost:8000
-```
+1. Asegúrate de tener los repositorios `backend-FastApi` y `proyecto-frontend` clonados uno al lado del otro en el mismo directorio.
+2. **Configura los archivos `.env`**:
+   - En **`proyecto-frontend`**, copia el archivo `.env.example` y renómbralo como `.env` (deja `VITE_API_URL=http://localhost:8000` por defecto).
+   - En **`backend-FastApi`**, copia el archivo `.env.example`, renómbralo como `.env` y llénalo con las credenciales de desarrollo.
+3. Abre tu terminal en la carpeta del backend:
+   ```bash
+   cd ../backend-FastApi
+   ```
+4. Ejecuta el orquestador:
+   ```bash
+   docker compose up --build
+   ```
+5. El portal frontend estará disponible automáticamente en tu navegador en: [http://localhost:5173](http://localhost:5173)
 
-### 4. Iniciar el Servidor de Desarrollo
-```sh
-npm run dev
-```
-El portal frontend estará disponible en tu navegador en: [http://localhost:5173/](http://localhost:5173/)
+---
+
+### Opción B: Desarrollar Frontend Apuntando a Backend Remoto (Recomendado para Maquetadores/Diseñadores)
+Si el backend del proyecto ya está desplegado en un servidor en internet (ej. Railway, Render, etc.) y no deseas instalar Docker ni clonar el código del backend en tu máquina:
+
+1. Clona únicamente este repositorio (`proyecto-frontend`) e ingresa a la carpeta.
+2. Instala las dependencias de node:
+   ```bash
+   npm install
+   ```
+3. Crea un archivo `.env` en la raíz de esta carpeta y cambia `VITE_API_URL` para que apunte a la dirección del servidor en internet:
+   ```env
+   # .env
+   VITE_API_URL=https://tu-api-desplegada.com
+   ```
+4. Inicia el servidor de desarrollo local:
+   ```bash
+   npm run dev
+   ```
+5. Accede desde: [http://localhost:5173](http://localhost:5173). Tu frontend local consumirá la base de datos y endpoints en internet de forma automática.
+
+---
+
+### Opción C: Instalación Tradicional Local (Sin Docker)
+Si deseas ejecutar solo el frontend en tu computadora pero conectándote a un backend que tienes corriendo localmente de forma tradicional:
+
+1. Instala las dependencias:
+   ```bash
+   npm install
+   ```
+2. Crea el archivo `.env` en la raíz de esta carpeta apuntando a tu puerto local:
+   ```env
+   # .env
+   VITE_API_URL=http://localhost:8000
+   ```
+3. Inicia el servidor de desarrollo:
+   ```bash
+   npm run dev
+   ```
+4. Accede en tu navegador a: [http://localhost:5173/](http://localhost:5173/)
 
 ---
 
