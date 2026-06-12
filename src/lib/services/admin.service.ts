@@ -3,8 +3,10 @@
  * Requiere token JWT de un usuario con rol admin.
  */
 import { API_BASE } from '$lib/config/api';
-export type { User, RoleRead } from '$lib/types';
-import type { PaymentRead } from '$lib/types/reservation';
+import type { User, RoleRead } from '$lib/types';
+import type { PaymentRead, PaginatedPayments } from '$lib/types/reservation';
+export type { User, RoleRead };
+
 
 function getAuthHeaders(): HeadersInit {
 	const raw = typeof window !== 'undefined' ? localStorage.getItem('auth') : null;
@@ -332,7 +334,7 @@ export async function fetchPayments(params?: {
 	status?: string;
 	limit?: number;
 	offset?: number;
-}): Promise<any> {
+}): Promise<PaginatedPayments> {
 	const q = new URLSearchParams();
 	if (params?.start_date) q.set('start_date', params.start_date);
 	if (params?.end_date) q.set('end_date', params.end_date);

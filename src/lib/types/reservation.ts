@@ -131,3 +131,11 @@ export interface PaymentRead {
 	created_at: string;
 	reservation?: ReservationRead;
 }
+
+export interface PaginatedPayments {
+	total: number;
+	limit: number;
+	offset: number;
+	items: PaymentRead[];
+}
+
