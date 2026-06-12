@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { getDashboardStats, type DashboardStats } from '$lib/services/dashboard.service';
-	import { getAdminReservations } from '$lib/services/reservation.service';
+	import { getRecentReservations } from '$lib/services/reservation.service';
 	import type { ReservationRead } from '$lib/types/reservation';
 	import DashboardCard from '$lib/components/ui/DashboardCard.svelte';
 	import DashboardChart from '$lib/components/ui/DashboardChart.svelte';
@@ -37,10 +37,10 @@
 		try {
 			const [statsData, reservationsData] = await Promise.all([
 				getDashboardStats(),
-				getAdminReservations()
+				getRecentReservations(6)
 			]);
 			stats = statsData;
-			recentReservations = reservationsData.slice(0, 6);
+			recentReservations = reservationsData;
 			error = null;
 		} catch (err: any) {
 			error = err.message;

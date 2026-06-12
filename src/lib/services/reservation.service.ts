@@ -278,3 +278,14 @@ export async function payAdminReservationExtra(resId: number, pivotId: number): 
 	}
 	return await res.json();
 }
+
+export async function getRecentReservations(limit: number = 6): Promise<any[]> {
+	const res = await fetch(`${API_BASE}/admin/recent-reservations?limit=${limit}`, {
+		headers: getHeaders()
+	});
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({}));
+		throw new Error(err.detail ?? 'Error al cargar reservaciones recientes');
+	}
+	return await res.json();
+}

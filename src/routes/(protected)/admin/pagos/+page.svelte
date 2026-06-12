@@ -29,6 +29,7 @@
 	const initialState = persistence.getInitialState();
 
 	let payments = $state<PaymentRead[]>([]);
+	let totalPaymentsCount = $state(0);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let activeTooltip = $state<string | null>(null);
@@ -70,18 +71,19 @@
 	}));
 
 	// Pagination
-	let paginatedPayments = $derived(filteredPayments.slice((page - 1) * pageSize, page * pageSize));
-	let totalPages = $derived(Math.ceil(filteredPayments.length / pageSize) || 1);
+	let paginatedPayments = $derived(filteredPayments);
+	let totalPages = $derived(Math.ceil(totalPaymentsCount / pageSize) || 1);
 	let hasNextPage = $derived(page < totalPages);
 	let hasPrevPage = $derived(page > 1);
 
-	function nextPage() { if (hasNextPage) page++; }
-	function prevPage() { if (hasPrevPage) page--; }
+	function nextPage() { if (hasNextPage) { page++; loadPayments(false); } }
+	function prevPage() { if (hasPrevPage) { page--; loadPayments(false); } }
 	function setPageSize(e: Event) {
 		const v = Number((e.currentTarget as HTMLSelectElement).value);
 		if (!Number.isFinite(v) || v <= 0) return;
 		pageSize = v;
 		page = 1;
+		loadPayments(false);
 	}
 
 	// Summary stats
@@ -199,15 +201,19 @@
 
 	async function loadPayments(resetPage = true) {
 		loading = true;
+		if (resetPage) page = 1;
 		try {
-			payments = await fetchPayments({
+			const res = await fetchPayments({
 				start_date: filters.start_date || undefined,
 				end_date: filters.end_date || undefined,
 				method: filters.method || undefined,
-				status: filters.status || undefined
+				status: filters.status || undefined,
+				limit: pageSize,
+				offset: (page - 1) * pageSize
 			});
+			payments = res.items || [];
+			totalPaymentsCount = res.total || 0;
 			error = null;
-			if (resetPage) page = 1;
 		} catch (err: any) {
 			error = err.message;
 			toast.error('Error al cargar pagos: ' + err.message);

@@ -332,7 +332,7 @@ export async function fetchPayments(params?: {
 	status?: string;
 	limit?: number;
 	offset?: number;
-}): Promise<PaymentRead[]> {
+}): Promise<any> {
 	const q = new URLSearchParams();
 	if (params?.start_date) q.set('start_date', params.start_date);
 	if (params?.end_date) q.set('end_date', params.end_date);
