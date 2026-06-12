@@ -280,7 +280,6 @@
 				</div>
 			</form>
 		</div>
-v>
 	</header>
 
 	<!-- Experience Section (Now holding Suites content) -->
