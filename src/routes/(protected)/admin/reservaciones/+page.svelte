@@ -10,6 +10,7 @@
 	import { hasPermission } from '$lib/types';
 	import { toast } from '$lib/stores/toast.svelte';
 	import GenericConfirmModal from '$lib/components/ui/GenericConfirmModal.svelte';
+	import { getFromCache, saveToCache, invalidateCache } from '$lib/utils/cache';
 	
 	import { createPersistence } from '$lib/utils/persistence';
 	import '../adminPage.css';
@@ -60,52 +61,25 @@
 	function clearDateFilter() {
 		filterStartDate = '';
 		filterEndDate = '';
-		page = 1;
+		void loadAll(1);
 	}
 
-	let filteredReservations = $derived(reservations.filter(r => {
-		const search = searchQuery.toLowerCase().trim();
-		const matchesSearch = search === '' || 
-			r.unique_id.toLowerCase().includes(search) || 
-			(r.user?.profile?.first_name && r.user.profile.first_name.toLowerCase().includes(search)) || 
-			(r.user?.profile?.last_name && r.user.profile.last_name.toLowerCase().includes(search)) ||
-			(r.user?.profile?.business_name && r.user.profile.business_name.toLowerCase().includes(search));
-		
-		const matchesStatus = selectedStatus === '' || r.status === selectedStatus;
-		
-		let matchesDates = true;
-		if (filterStartDate || filterEndDate) {
-			const rStart = r.check_in;
-			const rEnd = r.check_out;
-			
-			if (filterStartDate && filterEndDate) {
-				// overlap condition: (rStart <= filterEndDate) && (rEnd >= filterStartDate)
-				matchesDates = rStart <= filterEndDate && rEnd >= filterStartDate;
-			} else if (filterStartDate) {
-				matchesDates = rEnd >= filterStartDate;
-			} else if (filterEndDate) {
-				matchesDates = rStart <= filterEndDate;
-			}
-		}
+	let filteredReservations = $derived(reservations);
 
-		return matchesSearch && matchesStatus && matchesDates;
-	}));
-
-	let availableStatuses = $derived(Array.from(new Set(reservations.map(r => r.status))));
+	let availableStatuses = ['pending', 'verifying', 'confirmed', 'cancelled'];
 
 	// Pagination
-	let paginatedReservations = $derived(filteredReservations.slice((page - 1) * pageSize, page * pageSize));
-	let totalPages = $derived(Math.ceil(filteredReservations.length / pageSize) || 1);
-	let hasNextPage = $derived(page < totalPages);
+	let paginatedReservations = $derived(reservations);
+	let hasNextPage = $state(false);
 	let hasPrevPage = $derived(page > 1);
 
-	function nextPage() { if (hasNextPage) page++; }
-	function prevPage() { if (hasPrevPage) page--; }
+	function nextPage() { if (hasNextPage) void loadAll(page + 1); }
+	function prevPage() { if (hasPrevPage) void loadAll(page - 1); }
 	function setPageSize(e: Event) {
 		const v = Number((e.currentTarget as HTMLSelectElement).value);
 		if (!Number.isFinite(v) || v <= 0) return;
 		pageSize = v;
-		page = 1;
+		void loadAll(1);
 	}
 
 	function formatDateShort(dateStr: string) {
@@ -113,17 +87,57 @@
 		return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
 	}
 
-	async function loadAll() {
-		loading = true;
+	async function loadAll(targetPage?: number, forceFetch = false) {
+		const currentPage = targetPage ?? page;
+		const offset = (currentPage - 1) * pageSize;
+		const querySearch = searchQuery.trim();
+		
+		const cacheKey = `reservations_${pageSize}_${offset}_${querySearch}_${selectedStatus}_${filterStartDate}_${filterEndDate}`;
+
+		// 1. SWR cache check
+		const cached = getFromCache<ReservationRead[]>(cacheKey);
+		if (cached && !forceFetch) {
+			reservations = cached.slice(0, pageSize);
+			hasNextPage = cached.length > pageSize;
+			page = currentPage;
+			loading = false;
+			error = null;
+		} else {
+			loading = true;
+		}
+
 		try {
-			reservations = await getAdminReservations();
+			const result = await getAdminReservations({
+				limit: pageSize + 1,
+				offset,
+				search: querySearch || undefined,
+				status: selectedStatus || undefined,
+				start_date: filterStartDate || undefined,
+				end_date: filterEndDate || undefined
+			});
+
+			saveToCache(cacheKey, result);
+			reservations = result.slice(0, pageSize);
+			hasNextPage = result.length > pageSize;
+			page = currentPage;
 			error = null;
 		} catch (err: any) {
-			error = err.message;
-			toast.error('Error al cargar datos: ' + err.message);
+			if (!cached) {
+				error = err.message;
+				toast.error('Error al cargar datos: ' + err.message);
+			}
 		} finally {
 			loading = false;
 		}
+	}
+
+	let debounceTimeout: any;
+	function handleSearchInput() {
+		page = 1;
+		clearTimeout(debounceTimeout);
+		debounceTimeout = setTimeout(() => {
+			void loadAll(1);
+		}, 300);
 	}
 
 	onMount(async () => {
@@ -131,7 +145,7 @@
 			goto('/dashboard', { replaceState: true });
 			return;
 		}
-		await loadAll();
+		await loadAll(page);
 	});
 
 	function openCreate() {
@@ -158,7 +172,8 @@
 			await deleteAdminReservation(resToDelete.id);
 			toast.success(`Reservación eliminada`);
 			isDeleteModalOpen = false;
-			await loadAll();
+			invalidateCache('reservations_'); // Invalidate all list caches
+			await loadAll(page, true);
 		} catch (e: any) {
 			toast.error(e.message || 'Error al eliminar');
 		} finally {
@@ -182,17 +197,17 @@
 		<div class="admin-toolbar">
 			<div class="admin-search-wrapper">
 				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-				<input type="text" placeholder="Buscar por código, nombre o email..." bind:value={searchQuery} oninput={() => page = 1} />
+				<input type="text" placeholder="Buscar por código, nombre o email..." bind:value={searchQuery} oninput={handleSearchInput} />
 			</div>
 
 			<div class="flex flex-wrap xl:flex-nowrap items-center gap-3">
 				<div class="admin-filters !flex-nowrap">
 					<div class="admin-input-group !gap-1.5 px-3">
 						<span>IN</span>
-						<input type="date" bind:value={filterStartDate} onchange={() => page = 1} class="!w-[85px] text-xs" />
+						<input type="date" bind:value={filterStartDate} onchange={() => loadAll(1)} class="!w-[85px] text-xs" />
 						<span class="text-slate-300 dark:text-slate-600 font-light mx-1">/</span>
 						<span>OUT</span>
-						<input type="date" bind:value={filterEndDate} onchange={() => page = 1} class="!w-[85px] text-xs" />
+						<input type="date" bind:value={filterEndDate} onchange={() => loadAll(1)} class="!w-[85px] text-xs" />
 						
 						{#if filterStartDate || filterEndDate}
 							<button type="button" class="ml-1 text-slate-400 hover:text-red-500 transition-colors" onclick={clearDateFilter} title="Limpiar fechas">
@@ -201,7 +216,7 @@
 						{/if}
 					</div>
 
-					<select bind:value={selectedStatus} onchange={() => page = 1} class="!w-[130px]">
+					<select bind:value={selectedStatus} onchange={() => loadAll(1)} class="!w-[130px]">
 						<option value="">Cualquier estado</option>
 						{#each availableStatuses as s}
 							<option value={s} class="uppercase">{s}</option>
@@ -225,7 +240,7 @@
 	{/if}
 
 	<section class="admin-section">
-		{#if loading}
+		{#if loading && reservations.length === 0}
 			<p class="admin-loading">Cargando datos...</p>
 		{:else if reservations.length === 0}
 			<p class="admin-hint">No hay reservaciones registradas en el sistema.</p>
@@ -346,11 +361,11 @@
 				</div>
 
 				<div class="admin-pagination-right">
-					<button type="button" class="admin-btn-secondary" onclick={prevPage} disabled={!hasPrevPage}>
+					<button type="button" class="admin-btn-secondary" onclick={prevPage} disabled={loading || !hasPrevPage}>
 						Anterior
 					</button>
-					<span class="admin-pagination-info">Página {page} de {totalPages}</span>
-					<button type="button" class="admin-btn-secondary" onclick={nextPage} disabled={!hasNextPage}>
+					<span class="admin-pagination-info">Página {page}</span>
+					<button type="button" class="admin-btn-secondary" onclick={nextPage} disabled={loading || !hasNextPage}>
 						Siguiente
 					</button>
 				</div>

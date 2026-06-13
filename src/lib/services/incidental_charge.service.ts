@@ -123,11 +123,46 @@ export async function deleteIncidentalCategory(id: number): Promise<void> {
 
 // ── Charges ────────────────────────────────────────────────────────────
 
-export async function fetchAllIncidentals(): Promise<IncidentalChargeRead[]> {
-	const res = await fetch(`${API_BASE}/admin/incidentals`, {
+export async function fetchAllIncidentals(params?: {
+	limit?: number;
+	offset?: number;
+	search?: string;
+	status?: string;
+	category_id?: number;
+}): Promise<IncidentalChargeRead[]> {
+	const q = new URLSearchParams();
+	if (params?.limit != null) q.set('limit', String(params.limit));
+	if (params?.offset != null) q.set('offset', String(params.offset));
+	if (params?.search) q.set('search', params.search);
+	if (params?.status) q.set('status', params.status);
+	if (params?.category_id != null) q.set('category_id', String(params.category_id));
+
+	const url = `${API_BASE}/admin/incidentals${q.toString() ? '?' + q : ''}`;
+	const res = await fetch(url, {
 		headers: getHeaders()
 	});
 	if (!res.ok) throw new Error('Error al obtener todos los cargos incidentales');
+	return res.json();
+}
+
+/**
+ * Obtiene estadísticas agregadas globales de cargos incidentales desde el backend.
+ */
+export async function fetchIncidentalStats(params?: {
+	search?: string;
+	status?: string;
+	category_id?: number;
+}): Promise<{ pending_sum: number; paid_sum: number; waived_count: number }> {
+	const q = new URLSearchParams();
+	if (params?.search) q.set('search', params.search);
+	if (params?.status) q.set('status', params.status);
+	if (params?.category_id != null) q.set('category_id', String(params.category_id));
+
+	const url = `${API_BASE}/admin/incidentals/stats${q.toString() ? '?' + q : ''}`;
+	const res = await fetch(url, {
+		headers: getHeaders()
+	});
+	if (!res.ok) throw new Error('Error al obtener estadísticas de cargos incidentales');
 	return res.json();
 }
 

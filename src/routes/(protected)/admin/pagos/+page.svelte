@@ -1,12 +1,13 @@
 <script lang="ts">
-	import { fetchPayments, fetchPaymentDetail, fetchSystemSettings } from '$lib/services/admin.service';
-	import type { PaymentRead } from '$lib/types/reservation';
+	import { fetchPayments, fetchPaymentsStats, fetchPaymentDetail, fetchSystemSettings } from '$lib/services/admin.service';
+	import type { PaymentRead, PaginatedPayments } from '$lib/types/reservation';
 	import { onMount } from 'svelte';
 	import { authStore } from '$lib/stores/auth.store';
 	import { hasPermission } from '$lib/types';
 	import { goto } from '$app/navigation';
 	import { toast } from '$lib/stores/toast.svelte';
 	import { createPersistence } from '$lib/utils/persistence';
+	import { getFromCache, saveToCache } from '$lib/utils/cache';
 	import { DollarSign, CreditCard, RotateCcw } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 	import '../adminPage.css';
@@ -57,180 +58,116 @@
 		});
 	});
 
-	let filteredPayments = $derived(payments.filter(p => {
-		if (!searchQuery) return true;
-		const s = searchQuery.toLowerCase().trim();
-		return (
-			p.id.toString().includes(s) ||
-			(p.reservation?.unique_id && p.reservation.unique_id.toLowerCase().includes(s)) ||
-			(p.reservation?.user?.profile?.first_name && p.reservation.user.profile.first_name.toLowerCase().includes(s)) ||
-			(p.reservation?.user?.profile?.last_name && p.reservation.user.profile.last_name.toLowerCase().includes(s)) ||
-			(p.reservation?.user?.profile?.business_name && p.reservation.user.profile.business_name.toLowerCase().includes(s)) ||
-			(p.reservation?.user?.email && p.reservation.user.email.toLowerCase().includes(s))
-		);
-	}));
+	let filteredPayments = $derived(payments);
 
 	// Pagination
-	let paginatedPayments = $derived(filteredPayments);
+	let paginatedPayments = $derived(payments);
 	let totalPages = $derived(Math.ceil(totalPaymentsCount / pageSize) || 1);
 	let hasNextPage = $derived(page < totalPages);
 	let hasPrevPage = $derived(page > 1);
 
-	function nextPage() { if (hasNextPage) { page++; loadPayments(false); } }
-	function prevPage() { if (hasPrevPage) { page--; loadPayments(false); } }
+	function nextPage() { if (hasNextPage && !loading) { void loadPayments(page + 1); } }
+	function prevPage() { if (hasPrevPage && !loading) { void loadPayments(page - 1); } }
 	function setPageSize(e: Event) {
 		const v = Number((e.currentTarget as HTMLSelectElement).value);
 		if (!Number.isFinite(v) || v <= 0) return;
 		pageSize = v;
-		page = 1;
-		loadPayments(false);
+		void loadPayments(1);
 	}
 
-	// Summary stats
-	let stats = $derived.by(() => {
-		const completed = filteredPayments.filter(p => p.status === 'completed');
-		
-		const positivePayments = completed.filter(p => Number(p.amount) > 0);
-		const refundPayments = completed.filter(p => Number(p.amount) < 0);
-		
-		const totalReceived = positivePayments.reduce((acc, p) => acc + Number(p.amount), 0);
-		const totalRefunded = refundPayments.reduce((acc, p) => acc + Math.abs(Number(p.amount)), 0);
-		const count = completed.length;
-		const refundCount = refundPayments.length;
-		
-		// Micro-desglose del Total Recaudado (Neto vs Impuestos) con soporte de reconstrucción para históricos
-		let roomBaseSum = 0;
-		let extrasBaseSum = 0;
-		let incidentalsBaseSum = 0;
-		let ivaSum = 0;
-		let tourismSum = 0;
-		
-		positivePayments.forEach(p => {
-			const data = p.receipt_data as any;
-			const amount = Number(p.amount);
-			
-			// 1. Si tiene items estructurados creados por el nuevo motor de distribución secuencial (verdad absoluta del pago)
-			if (data && data.items && data.items.length > 0) {
-				data.items.forEach((item: any) => {
-					const totalAmount = Number(item.total_amount || 0);
-					const tax = Number(item.tax || 0);
-					const tourism = Number(item.tourism || 0);
-					
-					if (item.type === 'room') {
-						roomBaseSum += totalAmount;
-					} else if (item.type === 'extra') {
-						extrasBaseSum += totalAmount;
-					} else if (item.type === 'incidental') {
-						incidentalsBaseSum += totalAmount;
-					}
-					ivaSum += tax;
-					tourismSum += tourism;
-				});
-			} else if (p.reservation) {
-				// 2. Pago histórico legacy o simple: Pro-rateamos proporcionalmente según los conceptos de la reserva
-				// Esto garantiza consistencia absoluta con el Reporte Financiero de Reportes
-				const res = p.reservation;
-				const roomTaxFactor = 1.0 + ivaRate + tourismRate;
-				
-				const roomBase = res.subtotal ? Number(res.subtotal) : Number(res.total_cost) / roomTaxFactor;
-				const roomIva = res.tax_iva ? Number(res.tax_iva) : roomBase * ivaRate;
-				const roomTourism = res.tax_tourism ? Number(res.tax_tourism) : roomBase * tourismRate;
-				const roomTotal = roomBase + roomIva + roomTourism;
-				
-				const extrasBase = Number(res.extras_total || 0);
-				const extrasIva = extrasBase * ivaRate;
-				const extrasTotal = extrasBase + extrasIva;
-				
-				const incBase = Number(res.incidentals_total || 0);
-				let incIva = 0;
-				if (res.incidental_charges) {
-					res.incidental_charges.forEach((ch: any) => {
-						if (ch.payment_status !== 'waived' && ch.apply_tax) {
-							incIva += Number(ch.total_amount || 0) * ivaRate;
-						}
-					});
-				}
-				const incTotal = incBase + incIva;
-				
-				let grandTotal = roomTotal + extrasTotal + incTotal;
-				if (grandTotal <= 0) {
-					grandTotal = 1.0;
-				}
-				
-				const propRoom = roomBase / grandTotal;
-				const propExtra = extrasBase / grandTotal;
-				const propInc = incBase / grandTotal;
-				const propIva = (roomIva + extrasIva + incIva) / grandTotal;
-				const propTourism = roomTourism / grandTotal;
-				
-				roomBaseSum += amount * propRoom;
-				extrasBaseSum += amount * propExtra;
-				incidentalsBaseSum += amount * propInc;
-				ivaSum += amount * propIva;
-				tourismSum += amount * propTourism;
-			} else {
-				// 3. Fallback de emergencia si no hay reserva vinculada (100% alojamiento)
-				const base = amount / (1.0 + ivaRate + tourismRate);
-				const iva = base * ivaRate;
-				const tourism = base * tourismRate;
-				
-				roomBaseSum += base;
-				ivaSum += iva;
-				tourismSum += tourism;
-			}
-		});
-		
-		const byMethod = positivePayments.reduce((acc, p) => {
-			acc[p.method] = (acc[p.method] || 0) + Number(p.amount);
-			return acc;
-		}, {} as Record<string, number>);
-		
-		return { 
-			totalReceived, 
-			totalRefunded, 
-			count, 
-			refundCount,
-			roomBaseSum,
-			extrasBaseSum,
-			incidentalsBaseSum,
-			ivaSum,
-			tourismSum,
-			byMethod 
-		};
+	// Summary stats populated by backend
+	let stats = $state({
+		totalReceived: 0,
+		totalRefunded: 0,
+		count: 0,
+		refundCount: 0,
+		roomBaseSum: 0,
+		extrasBaseSum: 0,
+		incidentalsBaseSum: 0,
+		ivaSum: 0,
+		tourismSum: 0,
+		byMethod: {} as Record<string, number>
 	});
 
-	async function loadPayments(resetPage = true) {
-		loading = true;
-		if (resetPage) page = 1;
+	async function loadPayments(targetPage?: number, forceFetch = false) {
+		const currentPage = targetPage ?? page;
+		const offset = (currentPage - 1) * pageSize;
+		const querySearch = searchQuery.trim();
+		
+		const cacheKey = `payments_${pageSize}_${offset}_${querySearch}_${filters.start_date}_${filters.end_date}_${filters.method}_${filters.status}`;
+		const statsKey = `payments_stats_${querySearch}_${filters.start_date}_${filters.end_date}_${filters.method}_${filters.status}`;
+
+		// 1. SWR Cache check
+		const cachedPayments = getFromCache<PaginatedPayments>(cacheKey);
+		const cachedStats = getFromCache<any>(statsKey);
+
+		if (cachedPayments && cachedStats && !forceFetch) {
+			payments = cachedPayments.items || [];
+			totalPaymentsCount = cachedPayments.total || 0;
+			stats = cachedStats;
+			page = currentPage;
+			loading = false;
+			error = null;
+		} else {
+			loading = true;
+		}
+
 		try {
-			const res = await fetchPayments({
-				start_date: filters.start_date || undefined,
-				end_date: filters.end_date || undefined,
-				method: filters.method || undefined,
-				status: filters.status || undefined,
-				limit: pageSize,
-				offset: (page - 1) * pageSize
-			});
+			const [res, statsData] = await Promise.all([
+				fetchPayments({
+					start_date: filters.start_date || undefined,
+					end_date: filters.end_date || undefined,
+					method: filters.method || undefined,
+					status: filters.status || undefined,
+					limit: pageSize,
+					offset,
+					search: querySearch || undefined
+				}),
+				fetchPaymentsStats({
+					start_date: filters.start_date || undefined,
+					end_date: filters.end_date || undefined,
+					method: filters.method || undefined,
+					status: filters.status || undefined,
+					search: querySearch || undefined
+				})
+			]);
+
+			saveToCache(cacheKey, res);
+			saveToCache(statsKey, statsData);
+
 			payments = res.items || [];
 			totalPaymentsCount = res.total || 0;
+			stats = statsData;
+			page = currentPage;
 			error = null;
 		} catch (err: any) {
-			error = err.message;
-			toast.error('Error al cargar pagos: ' + err.message);
+			if (!cachedPayments || !cachedStats) {
+				error = err.message;
+				toast.error('Error al cargar pagos: ' + err.message);
+			}
 		} finally {
 			loading = false;
 		}
 	}
 
+	let debounceTimeout: any;
+	function handleSearchInput() {
+		page = 1;
+		clearTimeout(debounceTimeout);
+		debounceTimeout = setTimeout(() => {
+			void loadPayments(1);
+		}, 300);
+	}
+
 	function handleFilter(e: Event) {
 		e.preventDefault();
-		loadPayments();
+		void loadPayments(1);
 	}
 
 	function resetFilters() {
 		filters = { start_date: '', end_date: '', method: '', status: '' };
 		searchQuery = '';
-		loadPayments();
+		void loadPayments(1);
 	}
 
 	onMount(async () => {
@@ -250,9 +187,7 @@
 			console.error("Error al cargar configuraciones impositivas en pagos:", e);
 		}
 
-		// Cargamos los datos pero respetando la página persistida si ya la tenemos
-		// El loadPayments actual hace reset a 1, así que lo modificaré
-		await loadPayments(false);
+		await loadPayments(page);
 	});
 
 	function formatMethod(m: string) {
@@ -294,17 +229,17 @@
 		<div class="admin-toolbar">
 			<div class="admin-search-wrapper">
 				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-				<input type="text" placeholder="Buscar ID, reserva, cliente..." bind:value={searchQuery} oninput={() => page = 1} />
+				<input type="text" placeholder="Buscar ID, reserva, cliente..." bind:value={searchQuery} oninput={handleSearchInput} />
 			</div>
 
 			<div class="flex flex-wrap xl:flex-nowrap items-center gap-3">
 				<div class="admin-filters !flex-nowrap">
 					<div class="admin-input-group !gap-1.5 px-3">
 						<span>IN</span>
-						<input type="date" bind:value={filters.start_date} onchange={loadPayments} class="!w-[85px] text-xs" />
+						<input type="date" bind:value={filters.start_date} onchange={() => loadPayments(1)} class="!w-[85px] text-xs" />
 						<span class="text-slate-300 dark:text-slate-600 font-light mx-1">/</span>
 						<span>OUT</span>
-						<input type="date" bind:value={filters.end_date} onchange={loadPayments} class="!w-[85px] text-xs" />
+						<input type="date" bind:value={filters.end_date} onchange={() => loadPayments(1)} class="!w-[85px] text-xs" />
 						
 						{#if filters.start_date || filters.end_date}
 							<button type="button" class="ml-1 text-slate-400 hover:text-red-500 transition-colors" onclick={resetFilters} title="Limpiar fechas">
@@ -313,14 +248,14 @@
 						{/if}
 					</div>
 
-					<select bind:value={filters.method} onchange={loadPayments} class="!w-[130px]">
+					<select bind:value={filters.method} onchange={() => loadPayments(1)} class="!w-[130px]">
 						<option value="">Todo Método</option>
 						<option value="card">Tarjeta</option>
 						<option value="cash">Efectivo</option>
 						<option value="transfer">Transferencia</option>
 					</select>
 
-					<select bind:value={filters.status} onchange={loadPayments} class="!w-[130px]">
+					<select bind:value={filters.status} onchange={() => loadPayments(1)} class="!w-[130px]">
 						<option value="">Todo Estado</option>
 						<option value="completed">Completado</option>
 						<option value="verifying">Verificando</option>
@@ -329,7 +264,7 @@
 				</div>
 
 				<div class="hidden xl:block w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-				<button type="button" class="admin-btn !px-6" onclick={loadPayments} title="Filtrar">
+				<button type="button" class="admin-btn !px-6" onclick={() => loadPayments(1)} title="Filtrar">
 					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
 					<span>FILTRAR</span>
 				</button>
@@ -598,11 +533,11 @@
 				</div>
 
 				<div class="admin-pagination-right">
-					<button class="admin-btn-secondary" onclick={prevPage} disabled={!hasPrevPage}>
+					<button class="admin-btn-secondary" onclick={prevPage} disabled={loading || !hasPrevPage}>
 						Anterior
 					</button>
 					<span class="admin-pagination-info">Página {page} de {totalPages}</span>
-					<button class="admin-btn-secondary" onclick={nextPage} disabled={!hasNextPage}>
+					<button class="admin-btn-secondary" onclick={nextPage} disabled={loading || !hasNextPage}>
 						Siguiente
 					</button>
 				</div>

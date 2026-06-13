@@ -11,6 +11,7 @@
 	import type { User } from '$lib/types';
 	import GenericConfirmModal from '$lib/components/ui/GenericConfirmModal.svelte';
 	import { createPersistence } from '$lib/utils/persistence';
+	import { getFromCache, saveToCache, invalidateCache } from '$lib/utils/cache';
 	import '../adminPage.css';
 
 	const persistence = createPersistence({
@@ -48,31 +49,7 @@
 
 	let hasAccess = $derived(hasPermission($authStore.user, 'customers', 'read'));
 
-	let filteredClients = $derived(
-		clients.filter((c) => {
-			const search = searchQuery.toLowerCase().trim();
-			if (search === '') return true;
-
-			const profile = c.profile || {};
-			const firstName = (profile.first_name || '').toLowerCase();
-			const lastName = (profile.last_name || '').toLowerCase();
-			const email = (c.email || '').toLowerCase();
-			const docNum = (profile.document_number || '').toLowerCase();
-			const nit = (profile.nit || '').toLowerCase();
-			const nrc = (profile.nrc || '').toLowerCase();
-			const bizName = (profile.business_name || '').toLowerCase();
-
-			return (
-				email.includes(search) ||
-				firstName.includes(search) ||
-				lastName.includes(search) ||
-				bizName.includes(search) ||
-				docNum.includes(search) ||
-				nit.includes(search) ||
-				nrc.includes(search)
-			);
-		})
-	);
+	let filteredClients = $derived(clients);
 
 	function displayName(u: User): string {
 		const p = u.profile;
@@ -86,23 +63,52 @@
 		return full || u.email || '—';
 	}
 
-	async function load(targetPage?: number) {
-		loading = true;
+	async function load(targetPage?: number, forceFetch = false) {
+		const currentPage = targetPage ?? page;
+		const offset = (currentPage - 1) * pageSize;
+		const querySearch = searchQuery.trim();
+		const cacheKey = `clients_${pageSize}_${offset}_${querySearch}`;
+
+		// 1. SWR Cache check
+		const cached = getFromCache<User[]>(cacheKey);
+		if (cached && !forceFetch) {
+			clients = cached.slice(0, pageSize);
+			hasNextPage = cached.length > pageSize;
+			page = currentPage;
+			loading = false;
+			error = null;
+		} else {
+			loading = true;
+		}
+
 		try {
-			const currentPage = targetPage ?? page;
-			const offset = (currentPage - 1) * pageSize;
+			const rawClients = await fetchClients({ 
+				limit: pageSize + 1, 
+				offset,
+				search: querySearch || undefined
+			});
 
-			const rawClients = await fetchClients({ limit: pageSize + 1, offset });
-
+			saveToCache(cacheKey, rawClients);
 			clients = rawClients.slice(0, pageSize);
 			hasNextPage = rawClients.length > pageSize;
 			page = currentPage;
 			error = null;
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Error de conexión';
+			if (!cached) {
+				error = e instanceof Error ? e.message : 'Error de conexión';
+			}
 		} finally {
 			loading = false;
 		}
+	}
+
+	let debounceTimeout: any;
+	function handleSearchInput() {
+		page = 1;
+		clearTimeout(debounceTimeout);
+		debounceTimeout = setTimeout(() => {
+			void load(1);
+		}, 300);
 	}
 
 	function nextPage() {
@@ -134,7 +140,8 @@
 			await deactivateClient(clientToDeactivate.id);
 			toast.success(`Cliente ${clientToDeactivate.email} desactivado`);
 			isConfirmModalOpen = false;
-			await load(page);
+			invalidateCache('clients_'); // invalidate all client list caches
+			await load(page, true);
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : 'Error al desactivar';
 			toast.error(msg);
@@ -177,7 +184,7 @@
 						stroke-linejoin="round"
 						><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg
 					>
-					<input type="text" placeholder="Buscar por nombre, DUI, NIT o correo..." bind:value={searchQuery} oninput={() => page = 1} />
+					<input type="text" placeholder="Buscar por nombre, DUI, NIT o correo..." bind:value={searchQuery} oninput={handleSearchInput} />
 				</div>
 
 				<div class="flex flex-wrap xl:flex-nowrap items-center gap-3">
@@ -203,9 +210,9 @@
 			</div>
 		</div>
 
-		{#if loading}
+		{#if loading && clients.length === 0}
 			<p class="admin-loading">Cargando...</p>
-		{:else if error}
+		{:else if error && clients.length === 0}
 			<div class="admin-error" role="alert">{error}</div>
 		{:else}
 			<section class="admin-section">

@@ -5,9 +5,11 @@
 	import { hasPermission } from '$lib/types';
 	import { toast } from '$lib/stores/toast.svelte';
 	import GenericConfirmModal from '$lib/components/ui/GenericConfirmModal.svelte';
+	import { getFromCache, saveToCache, invalidateCache } from '$lib/utils/cache';
 	
 	import {
 		fetchAllIncidentals,
+		fetchIncidentalStats,
 		fetchIncidentalCategories,
 		createIncidentalCategory,
 		updateIncidentalCategory,
@@ -81,38 +83,26 @@
 
 	let hasAccess = $derived(hasPermission($authStore.user, 'incidentals', 'read'));
 
-	// Filtering
-	let filteredCharges = $derived(charges.filter(c => {
-		const search = searchQuery.toLowerCase().trim();
-		const matchesSearch = search === '' || 
-			c.description.toLowerCase().includes(search) || 
-			c.reservation_unique_id?.toLowerCase().includes(search) ||
-			c.created_by?.email.toLowerCase().includes(search);
-		
-		const matchesStatus = selectedStatus === '' || c.payment_status === selectedStatus;
-		const matchesCategory = selectedCategory === '' || String(c.category?.id) === selectedCategory;
+	// SWR / Server-side list representation
+	let filteredCharges = $derived(charges);
 
-		return matchesSearch && matchesStatus && matchesCategory;
-	}));
-
-	// Stats/KPIs
-	let pendingSum = $derived(filteredCharges.filter(c => c.payment_status === 'pending').reduce((sum, c) => sum + Number(c.total_amount) * (c.apply_tax ? (1 + ivaRate) : 1), 0));
-	let paidSum = $derived(filteredCharges.filter(c => c.payment_status === 'paid').reduce((sum, c) => sum + Number(c.total_amount) * (c.apply_tax ? (1 + ivaRate) : 1), 0));
-	let waivedCount = $derived(filteredCharges.filter(c => c.payment_status === 'waived').length);
+	// Stats/KPIs populated by server
+	let pendingSum = $state(0);
+	let paidSum = $state(0);
+	let waivedCount = $state(0);
 
 	// Pagination
-	let paginatedCharges = $derived(filteredCharges.slice((page - 1) * pageSize, page * pageSize));
-	let totalPages = $derived(Math.ceil(filteredCharges.length / pageSize) || 1);
-	let hasNextPage = $derived(page < totalPages);
+	let paginatedCharges = $derived(charges);
+	let hasNextPage = $state(false);
 	let hasPrevPage = $derived(page > 1);
 
-	function nextPage() { if (hasNextPage) page++; }
-	function prevPage() { if (hasPrevPage) page--; }
+	function nextPage() { if (hasNextPage && !loading) void loadAll(page + 1); }
+	function prevPage() { if (hasPrevPage && !loading) void loadAll(page - 1); }
 	function setPageSize(e: Event) {
 		const v = Number((e.currentTarget as HTMLSelectElement).value);
 		if (!Number.isFinite(v) || v <= 0) return;
 		pageSize = v;
-		page = 1;
+		void loadAll(1);
 	}
 
 	function formatDateTime(dateStr: string) {
@@ -149,22 +139,77 @@
 		}
 	}
 
-	async function loadAll() {
-		loading = true;
+	async function loadAll(targetPage?: number, forceFetch = false) {
+		const currentPage = targetPage ?? page;
+		const offset = (currentPage - 1) * pageSize;
+		const querySearch = searchQuery.trim();
+		const categoryIdNum = selectedCategory ? Number(selectedCategory) : undefined;
+		
+		const cacheKey = `incidentals_${pageSize}_${offset}_${querySearch}_${selectedStatus}_${selectedCategory}`;
+		const statsKey = `incidentals_stats_${querySearch}_${selectedStatus}_${selectedCategory}`;
+
+		// 1. SWR cache check
+		const cachedCharges = getFromCache<IncidentalChargeRead[]>(cacheKey);
+		const cachedStats = getFromCache<{ pending_sum: number; paid_sum: number; waived_count: number }>(statsKey);
+
+		if (cachedCharges && cachedStats && !forceFetch) {
+			charges = cachedCharges.slice(0, pageSize);
+			hasNextPage = cachedCharges.length > pageSize;
+			pendingSum = cachedStats.pending_sum;
+			paidSum = cachedStats.paid_sum;
+			waivedCount = cachedStats.waived_count;
+			page = currentPage;
+			loading = false;
+			error = null;
+		} else {
+			loading = true;
+		}
+
 		try {
-			const [chargesData, categoriesData] = await Promise.all([
-				fetchAllIncidentals(),
-				fetchIncidentalCategories()
+			const [chargesData, statsData, categoriesData] = await Promise.all([
+				fetchAllIncidentals({
+					limit: pageSize + 1,
+					offset,
+					search: querySearch || undefined,
+					status: selectedStatus || undefined,
+					category_id: categoryIdNum
+				}),
+				fetchIncidentalStats({
+					search: querySearch || undefined,
+					status: selectedStatus || undefined,
+					category_id: categoryIdNum
+				}),
+				categories.length === 0 ? fetchIncidentalCategories() : Promise.resolve(categories)
 			]);
-			charges = chargesData;
+
+			saveToCache(cacheKey, chargesData);
+			saveToCache(statsKey, statsData);
+
+			charges = chargesData.slice(0, pageSize);
+			hasNextPage = chargesData.length > pageSize;
+			pendingSum = statsData.pending_sum;
+			paidSum = statsData.paid_sum;
+			waivedCount = statsData.waived_count;
 			categories = categoriesData;
+			page = currentPage;
 			error = null;
 		} catch (err: any) {
-			error = err.message;
-			toast.error('Error al cargar cargos incidentales: ' + err.message);
+			if (!cachedCharges || !cachedStats) {
+				error = err.message;
+				toast.error('Error al cargar cargos incidentales: ' + err.message);
+			}
 		} finally {
 			loading = false;
 		}
+	}
+
+	let debounceTimeout: any;
+	function handleSearchInput() {
+		page = 1;
+		clearTimeout(debounceTimeout);
+		debounceTimeout = setTimeout(() => {
+			void loadAll(1);
+		}, 300);
 	}
 
 	onMount(async () => {
@@ -178,7 +223,7 @@
 		} catch (err) {
 			console.error('Error al cargar la tasa de IVA desde la configuración:', err);
 		}
-		await loadAll();
+		await loadAll(page);
 	});
 
 	function openReservationDetail(resId: number) {
@@ -198,7 +243,8 @@
 			await waiveReservationIncidental(chargeToWaive.id, waiveReason);
 			toast.success('Cargo incidental exonerado con éxito');
 			isWaiveModalOpen = false;
-			await loadAll();
+			invalidateCache('incidentals_');
+			await loadAll(page, true);
 		} catch (e: any) {
 			toast.error(e.message || 'Error al exonerar cargo');
 		} finally {
@@ -218,7 +264,8 @@
 			await deleteReservationIncidental(chargeToDelete.id);
 			toast.success('Cargo incidental eliminado con éxito');
 			isDeleteModalOpen = false;
-			await loadAll();
+			invalidateCache('incidentals_');
+			await loadAll(page, true);
 		} catch (e: any) {
 			toast.error(e.message || 'Error al eliminar cargo');
 		} finally {
@@ -234,7 +281,8 @@
 			try {
 				await uploadIncidentalEvidence(chargeId, file);
 				toast.success('Evidencia fotográfica subida');
-				await loadAll();
+				invalidateCache('incidentals_');
+				await loadAll(page, true);
 			} catch (e: any) {
 				toast.error('Error al subir evidencia: ' + e.message);
 			} finally {
@@ -294,19 +342,19 @@
 	<div class="admin-toolbar flex-wrap xl:flex-nowrap gap-3">
 		<div class="admin-search-wrapper w-full" style="max-width: 500px;">
 			<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-			<input type="text" placeholder="Buscar por reserva, descripción o staff..." bind:value={searchQuery} oninput={() => page = 1} />
+			<input type="text" placeholder="Buscar por reserva, descripción o staff..." bind:value={searchQuery} oninput={handleSearchInput} />
 		</div>
 
 		<div class="flex flex-wrap xl:flex-nowrap items-center gap-3">
 			<div class="admin-filters !flex-nowrap">
-				<select bind:value={selectedCategory} onchange={() => page = 1} class="!w-[170px]">
+				<select bind:value={selectedCategory} onchange={() => loadAll(1)} class="!w-[170px]">
 					<option value="">Cualquier Categoría</option>
 					{#each categories as cat}
 						<option value={String(cat.id)}>{cat.name}</option>
 					{/each}
 				</select>
 
-				<select bind:value={selectedStatus} onchange={() => page = 1} class="!w-[150px]">
+				<select bind:value={selectedStatus} onchange={() => loadAll(1)} class="!w-[150px]">
 					<option value="">Cualquier Estado</option>
 					<option value="pending">Pendiente</option>
 					<option value="paid">Pagado</option>
@@ -358,12 +406,12 @@
 		</div>
 	</div>
 
-	{#if error && !loading}
-		<div class="admin-error">{error}</div>
+	{#if error && charges.length === 0}
+		<div class="admin-error" role="alert">{error}</div>
 	{/if}
 
 	<section class="admin-section">
-		{#if loading}
+		{#if loading && charges.length === 0}
 			<p class="admin-loading">Cargando cargos incidentales...</p>
 		{:else if charges.length === 0}
 			<p class="admin-hint">No hay cargos incidentales registrados en el sistema.</p>
@@ -480,11 +528,11 @@
 				</div>
 
 				<div class="admin-pagination-right">
-					<button type="button" class="admin-btn-secondary" onclick={prevPage} disabled={!hasPrevPage}>
+					<button type="button" class="admin-btn-secondary" onclick={prevPage} disabled={loading || !hasPrevPage}>
 						Anterior
 					</button>
-					<span class="admin-pagination-info">Página {page} de {totalPages}</span>
-					<button type="button" class="admin-btn-secondary" onclick={nextPage} disabled={!hasNextPage}>
+					<span class="admin-pagination-info">Página {page}</span>
+					<button type="button" class="admin-btn-secondary" onclick={nextPage} disabled={loading || !hasNextPage}>
 						Siguiente
 					</button>
 				</div>

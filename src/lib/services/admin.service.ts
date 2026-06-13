@@ -154,10 +154,11 @@ export async function deactivateUser(userId: number): Promise<void> {
 
 // ----- Clientes -----
 
-export async function fetchClients(params?: { limit?: number; offset?: number }): Promise<User[]> {
+export async function fetchClients(params?: { limit?: number; offset?: number; search?: string }): Promise<User[]> {
 	const q = new URLSearchParams();
 	if (params?.limit != null) q.set('limit', String(params.limit));
 	if (params?.offset != null) q.set('offset', String(params.offset));
+	if (params?.search) q.set('search', params.search);
 	const url = `${API_BASE}/admin/clients${q.toString() ? '?' + q.toString() : ''}`;
 	const res = await fetch(url, { headers: getAuthHeaders() });
 	if (!res.ok) throw new Error(await res.json().then((d) => d.detail ?? 'Error').catch(() => 'Error'));
@@ -311,6 +312,7 @@ export async function fetchAuditLogs(params?: {
 	user_id?: number;
 	limit?: number;
 	offset?: number;
+	search?: string;
 }): Promise<AuditLogRead[]> {
 	const q = new URLSearchParams();
 	if (params?.event_type) q.set('event_type', params.event_type);
@@ -318,6 +320,7 @@ export async function fetchAuditLogs(params?: {
 	if (params?.user_id != null) q.set('user_id', String(params.user_id));
 	if (params?.limit != null) q.set('limit', String(params.limit));
 	if (params?.offset != null) q.set('offset', String(params.offset));
+	if (params?.search) q.set('search', params.search);
 	const url = `${API_BASE}/admin/audit-logs${q.toString() ? '?' + q : ''}`;
 	const res = await fetch(url, { headers: getAuthHeaders() });
 	if (!res.ok) throw new Error('Error al cargar bitácora');
@@ -334,6 +337,7 @@ export async function fetchPayments(params?: {
 	status?: string;
 	limit?: number;
 	offset?: number;
+	search?: string;
 }): Promise<PaginatedPayments> {
 	const q = new URLSearchParams();
 	if (params?.start_date) q.set('start_date', params.start_date);
@@ -342,10 +346,34 @@ export async function fetchPayments(params?: {
 	if (params?.status) q.set('status', params.status);
 	if (params?.limit != null) q.set('limit', String(params.limit));
 	if (params?.offset != null) q.set('offset', String(params.offset));
+	if (params?.search) q.set('search', params.search);
 
 	const url = `${API_BASE}/admin/payments${q.toString() ? '?' + q : ''}`;
 	const res = await fetch(url, { headers: getAuthHeaders() });
 	if (!res.ok) throw new Error('Error al cargar pagos');
+	return res.json();
+}
+
+/**
+ * Obtiene estadísticas agregadas globales de pagos desde el backend.
+ */
+export async function fetchPaymentsStats(params?: {
+	start_date?: string;
+	end_date?: string;
+	method?: string;
+	status?: string;
+	search?: string;
+}): Promise<any> {
+	const q = new URLSearchParams();
+	if (params?.start_date) q.set('start_date', params.start_date);
+	if (params?.end_date) q.set('end_date', params.end_date);
+	if (params?.method) q.set('method', params.method);
+	if (params?.status) q.set('status', params.status);
+	if (params?.search) q.set('search', params.search);
+
+	const url = `${API_BASE}/admin/payments/stats${q.toString() ? '?' + q : ''}`;
+	const res = await fetch(url, { headers: getAuthHeaders() });
+	if (!res.ok) throw new Error('Error al cargar estadísticas de pagos');
 	return res.json();
 }
 

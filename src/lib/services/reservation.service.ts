@@ -107,10 +107,30 @@ export async function cancelReservation(id: number): Promise<void> {
 	}
 }
 
-export async function getAdminReservations(roomId?: number): Promise<ReservationRead[]> {
+export async function getAdminReservations(
+	roomIdOrParams?: number | {
+		room_id?: number;
+		limit?: number;
+		offset?: number;
+		search?: string;
+		status?: string;
+		start_date?: string;
+		end_date?: string;
+	}
+): Promise<ReservationRead[]> {
 	const url = new URL(`${API_BASE}/admin/reservations`);
-	if (roomId) {
-		url.searchParams.append('room_id', roomId.toString());
+	
+	if (typeof roomIdOrParams === 'number') {
+		url.searchParams.append('room_id', roomIdOrParams.toString());
+	} else if (roomIdOrParams && typeof roomIdOrParams === 'object') {
+		const params = roomIdOrParams;
+		if (params.room_id) url.searchParams.append('room_id', params.room_id.toString());
+		if (params.limit != null) url.searchParams.append('limit', params.limit.toString());
+		if (params.offset != null) url.searchParams.append('offset', params.offset.toString());
+		if (params.search) url.searchParams.append('search', params.search);
+		if (params.status) url.searchParams.append('status', params.status);
+		if (params.start_date) url.searchParams.append('start_date', params.start_date);
+		if (params.end_date) url.searchParams.append('end_date', params.end_date);
 	}
 
 	const res = await fetch(url.toString(), {
