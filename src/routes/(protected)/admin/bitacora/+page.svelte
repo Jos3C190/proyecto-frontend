@@ -57,6 +57,36 @@
 	// Filtros en servidor, filteredLogs es directo
 	let filteredLogs = $derived(logs);
 
+	// Virtual scroll configuration
+	let tableWrapper = $state<HTMLDivElement | null>(null);
+	let scrollTop = $state(0);
+	let containerHeight = $state(450); // fallback height
+
+	function handleScroll(e: Event) {
+		const target = e.currentTarget as HTMLDivElement;
+		scrollTop = target.scrollTop;
+		containerHeight = target.clientHeight;
+	}
+
+	let totalItems = $derived(filteredLogs.length);
+	let visibleCount = $derived(Math.ceil(containerHeight / 52));
+	
+	let startIndex = $derived(Math.max(0, Math.floor(scrollTop / 52) - 5));
+	let endIndex = $derived(Math.min(totalItems, startIndex + visibleCount + 10));
+
+	let visibleLogs = $derived(filteredLogs.slice(startIndex, endIndex));
+	let spacerTop = $derived(startIndex * 52);
+	let spacerBottom = $derived((totalItems - endIndex) * 52);
+
+	$effect(() => {
+		if (searchQuery || filterMethod || page || limit) {
+			if (tableWrapper) {
+				tableWrapper.scrollTop = 0;
+				scrollTop = 0;
+			}
+		}
+	});
+
 	function setPageSize(e: Event) {
 		const v = Number((e.currentTarget as HTMLSelectElement).value);
 		if (!Number.isFinite(v) || v <= 0) return;
@@ -195,7 +225,7 @@
 		<div class="admin-error" role="alert">{error}</div>
 	{:else}
 		<section class="admin-section">
-			<div class="admin-table-wrapper">
+			<div class="admin-table-wrapper" bind:this={tableWrapper} onscroll={handleScroll} style="max-height: 65vh; overflow-y: auto; position: relative;">
 			<table class="admin-table">
 				<thead>
 					<tr>
@@ -210,8 +240,11 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each filteredLogs as log}
-						<tr>
+					{#if spacerTop > 0}
+						<tr style="height: {spacerTop}px;"><td colspan="8" style="padding: 0; border: 0; height: {spacerTop}px;"></td></tr>
+					{/if}
+					{#each visibleLogs as log}
+						<tr style="height: 52px;">
 							<td class="whitespace-nowrap text-slate-600 dark:text-slate-400">{formatDate(log.created_at)}</td>
 							<td><span class="admin-badge">{log.event_type}</span></td>
 							<td>{log.user_id ?? '—'}</td>
@@ -226,6 +259,9 @@
 							</td>
 						</tr>
 					{/each}
+					{#if spacerBottom > 0}
+						<tr style="height: {spacerBottom}px;"><td colspan="8" style="padding: 0; border: 0; height: {spacerBottom}px;"></td></tr>
+					{/if}
 				</tbody>
 			</table>
 			</div>
@@ -264,3 +300,15 @@
 	onClose={() => isDetailModalOpen = false} 
 />
 {/if}
+
+<style>
+	.admin-table-wrapper :global(th) {
+		position: sticky;
+		top: 0;
+		z-index: 10;
+		background-color: #f8fafc !important;
+	}
+	:global(.dark) .admin-table-wrapper :global(th) {
+		background-color: #1e293b !important;
+	}
+</style>

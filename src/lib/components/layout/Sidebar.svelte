@@ -40,7 +40,7 @@
 </script>
 
 <aside class="sidebar">
-	<nav class="sidebar-nav pt-6 relative" aria-label="Principal">
+	<nav class="sidebar-nav pt-6 relative" aria-label="Principal" data-sveltekit-preload-data="hover">
 		{#if hotelItems.length > 0}
 			<div class="sidebar-group-label">Gestión Hotelera</div>
 			{#each hotelItems as item}
